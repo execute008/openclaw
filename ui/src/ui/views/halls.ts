@@ -213,6 +213,25 @@ async function initializeScene(
     state.scene = new HallsScene({
       container,
       onEvent: (event) => {
+        // Handle annotation events
+        if (event.type.startsWith("annotation:")) {
+          const action = event.type.split(":")[1];
+          const payload = event.payload as { annotation?: { text?: string; author?: string } };
+          const text = payload?.annotation?.text ?? "annotation";
+          const displayText = text.length > 30 ? `${text.slice(0, 30)}...` : text;
+          switch (action) {
+            case "create":
+              setHallsFeedback(`Added annotation: "${displayText}"`, "success");
+              break;
+            case "resolve":
+              setHallsFeedback(`Resolved annotation: "${displayText}"`, "success");
+              break;
+            case "delete":
+              setHallsFeedback(`Deleted annotation`, "info");
+              break;
+          }
+          return;
+        }
         switch (event.type) {
           case "project:select":
             state.selectedProject = event.payload as Project | null;
@@ -279,6 +298,11 @@ async function initializeScene(
         }
       },
     });
+
+    // Connect annotation manager to gateway client
+    if (client) {
+      state.scene.connectAnnotationClient(client);
+    }
 
     state.scene.start();
     state.isInitialized = true;

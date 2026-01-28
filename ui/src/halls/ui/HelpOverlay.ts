@@ -38,6 +38,9 @@ const KEYBOARD_SHORTCUTS: ShortcutItem[] = [
   { key: "Ctrl+Z", description: "Undo" },
   { key: "Ctrl+Shift+Z", description: "Redo" },
 
+  { section: "Collaboration" },
+  { key: "N", description: "Add annotation / toggle panel" },
+
   { section: "General" },
   { key: "Escape", description: "Deselect / unlock camera" },
   { key: "H / ?", description: "Toggle this help" },

@@ -512,7 +512,11 @@ export type HallsEventType =
   | "voice:energy-report"
   | "presence:update"
   | "presence:join"
-  | "presence:leave";
+  | "presence:leave"
+  | "annotation:create"
+  | "annotation:update"
+  | "annotation:delete"
+  | "annotation:resolve";
 
 export interface HallsEvent {
   type: HallsEventType;
@@ -521,3 +525,23 @@ export interface HallsEvent {
 }
 
 export type HallsEventHandler = (event: HallsEvent) => void;
+
+// ============================================================================
+// Annotation Types
+// ============================================================================
+
+export type AnnotationStatus = "open" | "resolved";
+
+export interface Annotation {
+  id: string;
+  text: string;
+  author: string;
+  authorInstanceId?: string;
+  position: ProjectPosition;
+  status: AnnotationStatus;
+  createdAt: number;
+  updatedAt: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+  color?: number; // Optional custom color for the marker
+}

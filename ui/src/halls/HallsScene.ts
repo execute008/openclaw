@@ -17,7 +17,9 @@ import { VRControls } from "./controls/VRControls";
 import { VRHandTracking } from "./controls/VRHandTracking";
 import { VRTeleport } from "./controls/VRTeleport";
 import { UndoRedoManager } from "./systems/UndoRedoManager";
+import { AnnotationManager } from "./systems/AnnotationManager";
 import { Minimap } from "./ui/Minimap";
+import { AnnotationPanel, type AnnotationPanelEvent } from "./ui/AnnotationPanel";
 import { HelpOverlay } from "./ui/HelpOverlay";
 import { VRWristMenu, type WristMenuAction } from "./ui/VRWristMenu";
 import { ForgeEnvironment, ZONE_POSITIONS, type ZoneKey } from "./environment/Forge";
@@ -30,10 +32,12 @@ import { CircuitFloor } from "./effects/CircuitFloor";
 import { ProjectStation } from "./objects/ProjectStation";
 import { WorkflowConduit } from "./objects/WorkflowConduit";
 import { PresenceAvatar } from "./objects/PresenceAvatar";
+import { AnnotationMarker } from "./objects/AnnotationMarker";
 import { HolographicUI, type PanelAction } from "./objects/HolographicUI";
 import { AmbientAudio } from "./audio/AmbientAudio";
 import { VoiceCommandSystem, type VoiceCommandAction } from "./voice";
 import { hallsDataProvider, type HallsDataSnapshot } from "./data/HallsDataProvider";
+import type { GatewayBrowserClient } from "../ui/gateway";
 import {
   AssistantPanel,
   type AssistantSuggestion,
@@ -48,6 +52,7 @@ import {
   type AgentWorkflow,
   type Project,
   type PresenceDevice,
+  type Annotation,
 } from "./data/types";
 
 export interface HallsSceneOptions {
@@ -86,12 +91,16 @@ export class HallsScene {
   private voice: VoiceCommandSystem;
   private holographicUI: HolographicUI;
   private assistantPanel: AssistantPanel;
+  private annotationManager: AnnotationManager;
+  private annotationPanel: AnnotationPanel;
 
   // Object collections
   private projectStations: Map<string, ProjectStation> = new Map();
   private workflowConduits: Map<string, WorkflowConduit> = new Map();
   private presenceAvatars: Map<string, PresenceAvatar> = new Map();
   private fadingAvatars: PresenceAvatar[] = [];
+  private annotationMarkers: Map<string, AnnotationMarker> = new Map();
+  private fadingAnnotations: AnnotationMarker[] = [];
 
   // State
   private container: HTMLElement;
@@ -106,6 +115,7 @@ export class HallsScene {
   private selectedStation: ProjectStation | null = null;
   private teleportSurfaces: THREE.Object3D[] = [];
   private n8nWorkflows: AgentWorkflow[] = [];
+  private isAnnotationPlacementMode = false;
   private handScaleTarget:
     | { type: "station"; station: ProjectStation; baseScale: number }
     | { type: "ui"; baseScale: number }
@@ -247,6 +257,9 @@ export class HallsScene {
     this.holographicUI = new HolographicUI(this.scene);
     this.assistantPanel = new AssistantPanel(this.container);
     this.setupAssistantPanel();
+    this.annotationManager = new AnnotationManager();
+    this.annotationPanel = new AnnotationPanel(this.container);
+    this.setupAnnotationPanel();
     this.vrWristMenu = new VRWristMenu({
       scene: this.scene,
       renderer: this.renderer,
@@ -519,10 +532,13 @@ export class HallsScene {
    * Handle click for selection.
    * Note: Click only fires if mouseup happens without significant movement.
    */
-  private handleClick() {
+  private handleClick(event: MouseEvent) {
     if (this.isXrActive) return;
     // Don't process click if we just finished dragging
     if (this.dragControls.isDraggingActive()) return;
+
+    // Check for annotation placement mode
+    if (this.handleAnnotationPlacementClick(event)) return;
 
     if (this.hoveredObject) {
       const station = this.findStationByMesh(this.hoveredObject);
@@ -687,6 +703,13 @@ export class HallsScene {
       case "5":
         // Quick-travel to Command Deck
         this.teleportToZone("command");
+        break;
+      case "n":
+      case "N":
+        // Toggle annotation panel / start annotation placement
+        if (!event.ctrlKey && !event.metaKey) {
+          this.toggleAnnotationMode();
+        }
         break;
     }
   }
@@ -1215,6 +1238,16 @@ export class HallsScene {
 
     // Update presence avatars
     this.updatePresenceAvatars(snapshot.presence);
+
+    // Update annotation manager with self info for author attribution
+    if (snapshot.selfInstanceId) {
+      this.annotationManager.setSelfInstanceId(snapshot.selfInstanceId);
+      // Find self host from gateway info (fallback to hostname)
+      const selfHost = typeof window !== "undefined"
+        ? window.location.hostname || "Local"
+        : "Local";
+      this.annotationManager.setSelfHost(selfHost);
+    }
   }
 
   /**
@@ -1365,6 +1398,9 @@ export class HallsScene {
       }
     }
 
+    // Update annotation markers
+    this.updateAnnotationMarkers(delta, elapsed);
+
     // Render
     if (this.isXrActive) {
       this.renderer.render(this.scene, this.camera);
@@ -1411,6 +1447,9 @@ export class HallsScene {
 
     // Initial data fetch
     hallsDataProvider.fetchSnapshot().catch(console.error);
+
+    // Load annotations
+    this.loadAnnotations().catch(console.error);
   }
 
   /**
@@ -1474,6 +1513,19 @@ export class HallsScene {
       avatar.dispose();
     }
     this.fadingAvatars.length = 0;
+
+    for (const [, marker] of this.annotationMarkers) {
+      marker.dispose();
+    }
+    this.annotationMarkers.clear();
+
+    for (const marker of this.fadingAnnotations) {
+      marker.dispose();
+    }
+    this.fadingAnnotations.length = 0;
+
+    this.annotationManager.dispose();
+    this.annotationPanel.dispose();
 
     this.renderer.dispose();
     this.container.removeChild(this.renderer.domElement);
@@ -1578,5 +1630,227 @@ export class HallsScene {
     this.atmosphere.updateConfig(this.config);
     this.particles.updateConfig(this.config);
     this.audio.updateConfig(this.config);
+  }
+
+  // ============================================================================
+  // Annotation System
+  // ============================================================================
+
+  /**
+   * Setup annotation panel event handlers.
+   */
+  private setupAnnotationPanel() {
+    // Handle panel actions
+    this.annotationPanel.onAction((event: AnnotationPanelEvent) => {
+      this.handleAnnotationPanelAction(event);
+    });
+
+    // Subscribe to annotation manager events
+    this.annotationManager.subscribe((event) => {
+      switch (event.type) {
+        case "create":
+          this.createAnnotationMarker(event.annotation);
+          this.emitEvent({
+            type: "annotation:create",
+            payload: { annotation: event.annotation },
+            timestamp: Date.now(),
+          });
+          break;
+        case "update":
+          this.updateAnnotationMarker(event.annotation);
+          this.emitEvent({
+            type: "annotation:update",
+            payload: { annotation: event.annotation },
+            timestamp: Date.now(),
+          });
+          break;
+        case "resolve":
+          this.updateAnnotationMarker(event.annotation);
+          this.emitEvent({
+            type: "annotation:resolve",
+            payload: { annotation: event.annotation },
+            timestamp: Date.now(),
+          });
+          break;
+        case "delete":
+          this.removeAnnotationMarker(event.annotation.id);
+          this.emitEvent({
+            type: "annotation:delete",
+            payload: { annotation: event.annotation },
+            timestamp: Date.now(),
+          });
+          break;
+      }
+    });
+  }
+
+  /**
+   * Handle annotation panel actions.
+   */
+  private async handleAnnotationPanelAction(event: AnnotationPanelEvent) {
+    switch (event.action) {
+      case "create":
+        if (event.text && event.position) {
+          await this.annotationManager.createAnnotation(event.text, event.position);
+          this.isAnnotationPlacementMode = false;
+          // Refresh panel list
+          this.annotationPanel.setAnnotations(this.annotationManager.getAnnotations());
+        }
+        break;
+      case "resolve":
+        if (event.annotation) {
+          await this.annotationManager.resolveAnnotation(event.annotation.id);
+          this.annotationPanel.setAnnotations(this.annotationManager.getAnnotations());
+        }
+        break;
+      case "reopen":
+        if (event.annotation) {
+          await this.annotationManager.reopenAnnotation(event.annotation.id);
+          this.annotationPanel.setAnnotations(this.annotationManager.getAnnotations());
+        }
+        break;
+      case "delete":
+        if (event.annotation) {
+          await this.annotationManager.deleteAnnotation(event.annotation.id);
+          this.annotationPanel.setAnnotations(this.annotationManager.getAnnotations());
+        }
+        break;
+      case "close":
+        this.isAnnotationPlacementMode = false;
+        break;
+    }
+  }
+
+  /**
+   * Toggle annotation mode (panel visibility and placement mode).
+   */
+  private toggleAnnotationMode() {
+    if (this.annotationPanel.isVisible()) {
+      this.annotationPanel.hide();
+      this.isAnnotationPlacementMode = false;
+    } else {
+      this.annotationPanel.show();
+      this.annotationPanel.setAnnotations(this.annotationManager.getAnnotations());
+    }
+  }
+
+  /**
+   * Start annotation placement mode.
+   */
+  startAnnotationPlacement() {
+    this.isAnnotationPlacementMode = true;
+    this.annotationPanel.showCreateForm();
+  }
+
+  /**
+   * Create a 3D marker for an annotation.
+   */
+  private createAnnotationMarker(annotation: Annotation) {
+    const marker = new AnnotationMarker(annotation, this.scene);
+    this.annotationMarkers.set(annotation.id, marker);
+  }
+
+  /**
+   * Update an existing annotation marker.
+   */
+  private updateAnnotationMarker(annotation: Annotation) {
+    const marker = this.annotationMarkers.get(annotation.id);
+    if (marker) {
+      marker.updateAnnotation(annotation);
+    }
+  }
+
+  /**
+   * Remove an annotation marker with fade-out.
+   */
+  private removeAnnotationMarker(id: string) {
+    const marker = this.annotationMarkers.get(id);
+    if (marker) {
+      marker.fadeOut();
+      this.fadingAnnotations.push(marker);
+      this.annotationMarkers.delete(id);
+    }
+  }
+
+  /**
+   * Update annotation markers in the animation loop.
+   */
+  private updateAnnotationMarkers(delta: number, elapsed: number) {
+    // Update active markers
+    for (const marker of this.annotationMarkers.values()) {
+      marker.update(delta, elapsed);
+    }
+
+    // Update fading markers and remove completed ones
+    for (let i = this.fadingAnnotations.length - 1; i >= 0; i--) {
+      const marker = this.fadingAnnotations[i];
+      marker.update(delta, elapsed);
+
+      if (marker.isFadedOut()) {
+        marker.dispose();
+        this.fadingAnnotations.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * Handle click for annotation placement.
+   */
+  private handleAnnotationPlacementClick(event: MouseEvent) {
+    if (!this.isAnnotationPlacementMode) return false;
+
+    // Get world position from click
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(new THREE.Vector2(x, y), this.camera);
+
+    // Cast against floor/surfaces
+    const intersects = this.raycaster.intersectObjects(this.teleportSurfaces, true);
+    if (intersects.length > 0) {
+      const point = intersects[0].point;
+      this.annotationPanel.setPendingPosition({
+        x: point.x,
+        y: point.y,
+        z: point.z,
+      });
+      this.annotationPanel.setMode("create");
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Connect a gateway client to the annotation manager.
+   */
+  connectAnnotationClient(client: GatewayBrowserClient) {
+    this.annotationManager.connect(client);
+  }
+
+  /**
+   * Load existing annotations from gateway.
+   */
+  private async loadAnnotations() {
+    const annotations = await this.annotationManager.loadAnnotations();
+    for (const annotation of annotations) {
+      this.createAnnotationMarker(annotation);
+    }
+    this.annotationPanel.setAnnotations(annotations);
+  }
+
+  /**
+   * Get all annotations.
+   */
+  getAnnotations(): Annotation[] {
+    return this.annotationManager.getAnnotations();
+  }
+
+  /**
+   * Get the count of open annotations.
+   */
+  getOpenAnnotationCount(): number {
+    return this.annotationManager.getOpenCount();
   }
 }
