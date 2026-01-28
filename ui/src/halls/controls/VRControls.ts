@@ -161,6 +161,9 @@ export class VRControls {
       this.renderer.xr.enabled = true;
       this.renderer.xr.setReferenceSpaceType("local-floor");
       this.renderer.xr.setSession(session);
+      if ("setFoveation" in this.renderer.xr) {
+        this.renderer.xr.setFoveation(this.isQuest3 ? 1 : 0.7);
+      }
 
       session.addEventListener("end", this.handleSessionEnd);
       this.onSessionStart?.();
@@ -179,6 +182,9 @@ export class VRControls {
     this.activeSession = null;
     this.renderer.xr.setSession(null);
     this.renderer.xr.enabled = false;
+    if ("setFoveation" in this.renderer.xr) {
+      this.renderer.xr.setFoveation(0);
+    }
     this.onSessionEnd?.();
     this.updateUI();
   };

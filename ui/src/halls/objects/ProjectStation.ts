@@ -6,25 +6,30 @@
  */
 
 import * as THREE from "three";
+import { formatProjectTypeLabel } from "../data/formatters";
 import { HALLS_COLORS, type Project, type ProjectSize } from "../data/types";
 
 export class ProjectStation {
   private scene: THREE.Scene;
   private project: Project;
   private group: THREE.Group;
+  private detailGroup: THREE.Group;
   private mainMesh: THREE.Mesh;
   private glowMesh: THREE.Mesh;
   private hologramRing: THREE.Mesh;
   private statusIndicator: THREE.Mesh;
+  private lowDetailMesh: THREE.Mesh;
   private energyBars: THREE.Mesh[] = [];
   private infoLabel: THREE.Sprite | null = null;
   private iconSprite: THREE.Sprite | null = null;
+  private lodState: "high" | "low" = "high";
 
   // State
   private hovered = false;
   private selected = false;
   private dragging = false;
   private pulsePhase = Math.random() * Math.PI * 2;
+  private gestureScale = 1;
 
   // Materials (stored for disposal)
   private materials: THREE.Material[] = [];
@@ -33,7 +38,9 @@ export class ProjectStation {
     this.project = project;
     this.scene = scene;
     this.group = new THREE.Group();
+    this.detailGroup = new THREE.Group();
     this.group.name = `project-station-${project.id}`;
+    this.group.add(this.detailGroup);
 
     // Set position from project data
     this.group.position.set(project.position.x, project.position.y, project.position.z);
@@ -45,6 +52,7 @@ export class ProjectStation {
     this.statusIndicator = this.createStatusIndicator();
     this.createEnergyBars();
     this.createIconSprite();
+    this.lowDetailMesh = this.createLowDetailMesh();
 
     // Apply size customization
     this.applySize();
@@ -71,7 +79,7 @@ export class ProjectStation {
     mesh.position.y = 0.15;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    this.group.add(mesh);
+    this.detailGroup.add(mesh);
 
     // Add top surface
     const topGeometry = new THREE.CylinderGeometry(1.1, 1.1, 0.05, 6);
@@ -84,7 +92,7 @@ export class ProjectStation {
 
     const top = new THREE.Mesh(topGeometry, topMaterial);
     top.position.y = 0.32;
-    this.group.add(top);
+    this.detailGroup.add(top);
 
     return mesh;
   }
@@ -105,7 +113,7 @@ export class ProjectStation {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = 0.02;
-    this.group.add(mesh);
+    this.detailGroup.add(mesh);
 
     return mesh;
   }
@@ -124,7 +132,7 @@ export class ProjectStation {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 1;
-    this.group.add(mesh);
+    this.detailGroup.add(mesh);
 
     // Add vertical pillars
     for (let i = 0; i < 4; i++) {
@@ -132,7 +140,7 @@ export class ProjectStation {
       const pillarGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8);
       const pillar = new THREE.Mesh(pillarGeometry, material.clone());
       pillar.position.set(Math.cos(angle) * 0.8, 0.75, Math.sin(angle) * 0.8);
-      this.group.add(pillar);
+      this.detailGroup.add(pillar);
       this.materials.push(pillar.material as THREE.Material);
     }
 
@@ -153,7 +161,7 @@ export class ProjectStation {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 1.3;
-    this.group.add(mesh);
+    this.detailGroup.add(mesh);
 
     return mesh;
   }
@@ -179,9 +187,34 @@ export class ProjectStation {
 
       const bar = new THREE.Mesh(geometry, material);
       bar.position.set(startX + i * barSpacing, 0.5 + height / 2, 1);
-      this.group.add(bar);
+      this.detailGroup.add(bar);
       this.energyBars.push(bar);
     }
+  }
+
+  /**
+   * Create a simplified mesh for distant rendering.
+   */
+  private createLowDetailMesh(): THREE.Mesh {
+    const geometry = new THREE.CylinderGeometry(1.15, 1.25, 0.35, 6);
+    const material = new THREE.MeshStandardMaterial({
+      color: this.getStatusColor(),
+      roughness: 0.4,
+      metalness: 0.6,
+      emissive: this.getStatusColor(),
+      emissiveIntensity: 0.08,
+      transparent: true,
+      opacity: 0.85,
+    });
+    this.materials.push(material);
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = 0.18;
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    mesh.visible = false;
+    this.group.add(mesh);
+    return mesh;
   }
 
   /**
@@ -265,7 +298,7 @@ export class ProjectStation {
     this.iconSprite = new THREE.Sprite(material);
     this.iconSprite.scale.set(0.6, 0.6, 1);
     this.iconSprite.position.y = 1.6; // Above status indicator
-    this.group.add(this.iconSprite);
+    this.detailGroup.add(this.iconSprite);
   }
 
   /**
@@ -274,7 +307,7 @@ export class ProjectStation {
   private updateIconSprite() {
     // Remove existing sprite
     if (this.iconSprite) {
-      this.group.remove(this.iconSprite);
+      this.detailGroup.remove(this.iconSprite);
       this.iconSprite.material.dispose();
       if ((this.iconSprite.material as THREE.SpriteMaterial).map) {
         (this.iconSprite.material as THREE.SpriteMaterial).map?.dispose();
@@ -300,6 +333,13 @@ export class ProjectStation {
     mainMaterial.color.setHex(color);
     mainMaterial.emissive.setHex(color);
     mainMaterial.emissiveIntensity = this.dragging ? 0.6 : this.hovered ? 0.3 : this.selected ? 0.5 : 0.1;
+
+    // Update low detail mesh
+    const lowMaterial = this.lowDetailMesh.material as THREE.MeshStandardMaterial;
+    lowMaterial.color.setHex(color);
+    lowMaterial.emissive.setHex(color);
+    lowMaterial.emissiveIntensity = this.dragging || this.selected ? 0.25 : 0.08;
+    lowMaterial.opacity = isCompleted ? 0.7 : 0.85;
 
     // Update glow
     const glowMaterial = this.glowMesh.material as THREE.MeshBasicMaterial;
@@ -332,12 +372,40 @@ export class ProjectStation {
     // Scale on hover/select/drag (apply on top of base scale from size)
     const baseScale = this.group.userData.baseScale ?? 1;
     const stateMultiplier = this.dragging ? 1.2 : this.selected ? 1.15 : this.hovered ? 1.08 : 1;
-    this.group.scale.setScalar(baseScale * stateMultiplier);
+    this.group.scale.setScalar(baseScale * stateMultiplier * this.gestureScale);
 
     // Elevation during drag
     if (this.dragging) {
       this.group.position.y = this.project.position.y + 0.5;
     }
+  }
+
+  /**
+   * Update level-of-detail based on camera distance.
+   */
+  updateLod(camera: THREE.Camera, detailBias: number) {
+    if (this.selected || this.hovered || this.dragging) {
+      this.setLodState("high");
+      return;
+    }
+
+    const distance = camera.position.distanceTo(this.group.position);
+    const clampedBias = THREE.MathUtils.clamp(detailBias, 0, 1);
+    const highDistance = Math.max(6, 12 - clampedBias * 4);
+    const lowDistance = Math.max(10, 18 - clampedBias * 6);
+
+    if (this.lodState === "high" && distance > lowDistance) {
+      this.setLodState("low");
+    } else if (this.lodState === "low" && distance < highDistance) {
+      this.setLodState("high");
+    }
+  }
+
+  private setLodState(state: "high" | "low") {
+    if (this.lodState === state) return;
+    this.lodState = state;
+    this.detailGroup.visible = state === "high";
+    this.lowDetailMesh.visible = state === "low";
   }
 
   /**
@@ -349,6 +417,10 @@ export class ProjectStation {
     // Floating animation
     if (this.project.status === "hunting") {
       this.group.position.y = this.project.position.y + Math.sin(elapsed * 2) * 0.2 + 1;
+    }
+
+    if (this.lodState === "low") {
+      return;
     }
 
     // Pulse glow
@@ -441,7 +513,7 @@ export class ProjectStation {
     if (selected && !this.infoLabel) {
       this.createInfoLabel();
     } else if (!selected && this.infoLabel) {
-      this.group.remove(this.infoLabel);
+      this.detailGroup.remove(this.infoLabel);
       this.infoLabel.material.dispose();
       this.infoLabel = null;
     }
@@ -478,7 +550,7 @@ export class ProjectStation {
     ctx.font = "24px Space Grotesk, sans-serif";
     ctx.fillText(`Status: ${this.project.status}`, 24, 90);
     ctx.fillText(`Energy: ${this.project.energy}/10`, 24, 130);
-    ctx.fillText(`Type: ${this.project.type}`, 24, 170);
+    ctx.fillText(`Type: ${formatProjectTypeLabel(this.project.type)}`, 24, 170);
 
     if (this.project.metadata.description) {
       ctx.fillText(this.project.metadata.description.slice(0, 40), 24, 210);
@@ -495,7 +567,7 @@ export class ProjectStation {
     this.infoLabel = new THREE.Sprite(material);
     this.infoLabel.scale.set(4, 2, 1);
     this.infoLabel.position.y = 2.5;
-    this.group.add(this.infoLabel);
+    this.detailGroup.add(this.infoLabel);
   }
 
   /**
@@ -503,6 +575,21 @@ export class ProjectStation {
    */
   isSelected(): boolean {
     return this.selected;
+  }
+
+  /**
+   * Set gesture scaling multiplier.
+   */
+  setGestureScale(scale: number) {
+    this.gestureScale = scale;
+    this.updateVisuals();
+  }
+
+  /**
+   * Get gesture scaling multiplier.
+   */
+  getGestureScale(): number {
+    return this.gestureScale;
   }
 
   /**

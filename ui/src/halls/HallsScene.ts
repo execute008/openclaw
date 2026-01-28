@@ -101,6 +101,7 @@ export class HallsScene {
   private lastFrameTime = 0;
   private frameCount = 0;
   private fps = 60;
+  private detailBias = 0;
 
   constructor(options: HallsSceneOptions) {
     this.container = options.container;
@@ -820,6 +821,7 @@ export class HallsScene {
       this.fps = this.frameCount;
       this.frameCount = 0;
       this.lastFrameTime = elapsed;
+      this.updateAdaptiveDetail();
     }
 
     // Update controls
@@ -829,6 +831,14 @@ export class HallsScene {
     this.vrHands.update(delta);
     this.vrWristMenu.update();
     this.vrTeleport.update(delta);
+
+    // Update level-of-detail before animating objects
+    for (const [, station] of this.projectStations) {
+      station.updateLod(this.camera, this.detailBias);
+    }
+    for (const [, conduit] of this.workflowConduits) {
+      conduit.updateLod(this.camera, this.detailBias);
+    }
 
     // Update minimap with camera position
     const cameraDir = new THREE.Vector3();
@@ -962,6 +972,16 @@ export class HallsScene {
    */
   getFPS(): number {
     return this.fps;
+  }
+
+  private updateAdaptiveDetail() {
+    if (!this.isXrActive) {
+      this.detailBias = 0;
+      return;
+    }
+
+    const targetBias = this.fps < 68 ? 1 : this.fps < 72 ? 0.7 : this.fps > 80 ? 0 : 0.3;
+    this.detailBias += (targetBias - this.detailBias) * 0.15;
   }
 
   /**
