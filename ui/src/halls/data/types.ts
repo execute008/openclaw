@@ -463,6 +463,33 @@ export const HALLS_COLORS = {
 } as const;
 
 // ============================================================================
+// Multiplayer Presence Types
+// ============================================================================
+
+export type PresenceActivityState = "active" | "idle" | "away";
+
+export interface PresenceDevice {
+  instanceId: string;
+  host: string;
+  platform: string;
+  deviceFamily: string;
+  modelIdentifier?: string;
+  version?: string;
+  mode?: string;
+  activityState: PresenceActivityState;
+  lastInputSeconds: number;
+  position: ProjectPosition;
+  lookDirection?: { x: number; y: number; z: number };
+  color: number;
+  ts: number;
+}
+
+export interface PresenceUpdate {
+  devices: PresenceDevice[];
+  selfInstanceId?: string;
+}
+
+// ============================================================================
 // Event Types
 // ============================================================================
 
@@ -482,7 +509,10 @@ export type HallsEventType =
   | "ui:assistant"
   | "assistant:action"
   | "voice:active-projects"
-  | "voice:energy-report";
+  | "voice:energy-report"
+  | "presence:update"
+  | "presence:join"
+  | "presence:leave";
 
 export interface HallsEvent {
   type: HallsEventType;

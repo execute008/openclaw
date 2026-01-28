@@ -21,9 +21,16 @@ export {
   type HallsConfig,
   type HallsEvent,
   type HallsEventHandler,
+  type PresenceDevice,
+  type PresenceActivityState,
+  type PresenceUpdate,
   HALLS_COLORS,
   DEFAULT_HALLS_CONFIG,
 } from "./data/types";
+
+// Presence system
+export { PresenceSync, type PresenceSyncOptions } from "./systems/PresenceSync";
+export { PresenceAvatar } from "./objects/PresenceAvatar";
 
 // Voice commands
 export {

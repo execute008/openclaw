@@ -29,6 +29,7 @@ import { ParticleSystem } from "./effects/ParticleSystem";
 import { CircuitFloor } from "./effects/CircuitFloor";
 import { ProjectStation } from "./objects/ProjectStation";
 import { WorkflowConduit } from "./objects/WorkflowConduit";
+import { PresenceAvatar } from "./objects/PresenceAvatar";
 import { HolographicUI, type PanelAction } from "./objects/HolographicUI";
 import { AmbientAudio } from "./audio/AmbientAudio";
 import { VoiceCommandSystem, type VoiceCommandAction } from "./voice";
@@ -46,6 +47,7 @@ import {
   type HallsEventHandler,
   type AgentWorkflow,
   type Project,
+  type PresenceDevice,
 } from "./data/types";
 
 export interface HallsSceneOptions {
@@ -88,6 +90,8 @@ export class HallsScene {
   // Object collections
   private projectStations: Map<string, ProjectStation> = new Map();
   private workflowConduits: Map<string, WorkflowConduit> = new Map();
+  private presenceAvatars: Map<string, PresenceAvatar> = new Map();
+  private fadingAvatars: PresenceAvatar[] = [];
 
   // State
   private container: HTMLElement;
@@ -1208,6 +1212,64 @@ export class HallsScene {
     // Update particle intensity based on activity
     const activityLevel = snapshot.workflows.filter((w) => w.status === "running").length;
     this.particles.setIntensity(Math.min(1, activityLevel / 5 + 0.3));
+
+    // Update presence avatars
+    this.updatePresenceAvatars(snapshot.presence);
+  }
+
+  /**
+   * Update presence avatars based on presence data.
+   */
+  private updatePresenceAvatars(devices: PresenceDevice[]) {
+    const currentIds = new Set<string>();
+
+    // Update or create avatars for each device
+    for (const device of devices) {
+      currentIds.add(device.instanceId);
+
+      let avatar = this.presenceAvatars.get(device.instanceId);
+      if (!avatar) {
+        // New device joined - create avatar
+        avatar = new PresenceAvatar(device, this.scene);
+        this.presenceAvatars.set(device.instanceId, avatar);
+
+        // Emit join event
+        this.emitEvent({
+          type: "presence:join",
+          payload: { device },
+          timestamp: Date.now(),
+        });
+      } else {
+        // Update existing avatar
+        avatar.updateDevice(device);
+      }
+    }
+
+    // Handle devices that have left
+    for (const [id, avatar] of this.presenceAvatars) {
+      if (!currentIds.has(id)) {
+        // Device left - start fade out animation
+        avatar.fadeOut();
+        this.fadingAvatars.push(avatar);
+        this.presenceAvatars.delete(id);
+
+        // Emit leave event
+        this.emitEvent({
+          type: "presence:leave",
+          payload: { instanceId: id },
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    // Emit presence update event if there are any devices
+    if (devices.length > 0) {
+      this.emitEvent({
+        type: "presence:update",
+        payload: { devices, count: devices.length },
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private updateHolographicActions() {
@@ -1285,6 +1347,22 @@ export class HallsScene {
     // Update workflow conduits
     for (const [, conduit] of this.workflowConduits) {
       conduit.update(delta);
+    }
+
+    // Update presence avatars
+    for (const [, avatar] of this.presenceAvatars) {
+      avatar.update(delta, elapsed);
+      avatar.faceCamera(this.camera);
+    }
+
+    // Update and clean up fading avatars
+    for (let i = this.fadingAvatars.length - 1; i >= 0; i--) {
+      const avatar = this.fadingAvatars[i];
+      avatar.update(delta, elapsed);
+      if (avatar.isFadedOut()) {
+        avatar.dispose();
+        this.fadingAvatars.splice(i, 1);
+      }
     }
 
     // Render
@@ -1387,6 +1465,16 @@ export class HallsScene {
     }
     this.workflowConduits.clear();
 
+    for (const [, avatar] of this.presenceAvatars) {
+      avatar.dispose();
+    }
+    this.presenceAvatars.clear();
+
+    for (const avatar of this.fadingAvatars) {
+      avatar.dispose();
+    }
+    this.fadingAvatars.length = 0;
+
     this.renderer.dispose();
     this.container.removeChild(this.renderer.domElement);
   }
@@ -1434,6 +1522,20 @@ export class HallsScene {
    */
   getSelectedProject(): Project | null {
     return this.selectedStation?.getProject() ?? null;
+  }
+
+  /**
+   * Get the number of connected presence avatars.
+   */
+  getPresenceCount(): number {
+    return this.presenceAvatars.size;
+  }
+
+  /**
+   * Get all connected presence devices.
+   */
+  getPresenceDevices(): PresenceDevice[] {
+    return Array.from(this.presenceAvatars.values()).map((avatar) => avatar.getDevice());
   }
 
   private beginHandScale() {

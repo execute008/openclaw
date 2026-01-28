@@ -16,6 +16,7 @@ import type {
   NotionProjectsResult,
   NotionProjectUpdateResult,
   SheetsMetricsResult,
+  PresenceEntry,
 } from "../../ui/types";
 import type {
   Project,
@@ -32,6 +33,7 @@ import type {
   MappedCronJob,
   WorkflowType,
   WorkflowStatus,
+  PresenceDevice,
 } from "./types";
 import {
   mapN8nWorkflowToAgentWorkflow,
@@ -53,6 +55,8 @@ export interface HallsDataSnapshot {
     label: string;
     connected: boolean;
   }[];
+  presence: PresenceDevice[];
+  selfInstanceId?: string;
   lastUpdated: Date;
 }
 
@@ -77,6 +81,8 @@ export class HallsDataProvider {
   private cachedSnapshot: HallsDataSnapshot | null = null;
   private updateListeners: Set<(snapshot: HallsDataSnapshot) => void> = new Set();
   private notionProjectIds: Set<string> = new Set();
+  private presenceDevices: PresenceDevice[] = [];
+  private selfInstanceId: string | undefined;
 
   constructor() {}
 
@@ -219,6 +225,8 @@ export class HallsDataProvider {
       energyMetrics,
       businessMetrics,
       channels,
+      presence: this.presenceDevices,
+      selfInstanceId: this.selfInstanceId,
       lastUpdated: new Date(),
     };
 
@@ -919,6 +927,103 @@ export class HallsDataProvider {
    */
   getSnapshot(): HallsDataSnapshot | null {
     return this.cachedSnapshot;
+  }
+
+  /**
+   * Update presence data from gateway events.
+   * Called when presence events are received from the gateway.
+   */
+  updatePresence(entries: PresenceEntry[], selfInstanceId?: string): void {
+    if (selfInstanceId) {
+      this.selfInstanceId = selfInstanceId;
+    }
+
+    // Map presence entries to PresenceDevice objects
+    this.presenceDevices = entries
+      .filter((entry) => entry.instanceId && entry.instanceId !== this.selfInstanceId)
+      .map((entry, index) => this.mapPresenceEntry(entry, index));
+
+    // Update cached snapshot if it exists
+    if (this.cachedSnapshot) {
+      this.cachedSnapshot = {
+        ...this.cachedSnapshot,
+        presence: this.presenceDevices,
+        selfInstanceId: this.selfInstanceId,
+        lastUpdated: new Date(),
+      };
+      this.notifyListeners();
+    }
+  }
+
+  /**
+   * Map a gateway PresenceEntry to a PresenceDevice.
+   */
+  private mapPresenceEntry(entry: PresenceEntry, index: number): PresenceDevice {
+    const lastInputSeconds = entry.lastInputSeconds ?? 0;
+
+    // Determine activity state based on last input time
+    let activityState: PresenceDevice["activityState"] = "active";
+    if (lastInputSeconds > 600) {
+      activityState = "away";
+    } else if (lastInputSeconds > 120) {
+      activityState = "idle";
+    }
+
+    // Generate a consistent position based on index
+    const angle = (index / 8) * Math.PI * 2 + Math.PI / 4;
+    const radius = 20;
+
+    // Assign a color based on device index
+    const colors = [
+      0x22d3ee, // Cyan
+      0xa855f7, // Purple
+      0xf59e0b, // Amber
+      0x22c55e, // Green
+      0xec4899, // Pink
+      0x6366f1, // Indigo
+      0xef4444, // Red
+      0x14b8a6, // Teal
+    ];
+
+    return {
+      instanceId: entry.instanceId!,
+      host: entry.host ?? "Unknown",
+      platform: entry.platform ?? "unknown",
+      deviceFamily: entry.deviceFamily ?? "unknown",
+      modelIdentifier: entry.modelIdentifier ?? undefined,
+      version: entry.version ?? undefined,
+      mode: entry.mode ?? undefined,
+      activityState,
+      lastInputSeconds,
+      position: {
+        x: Math.cos(angle) * radius,
+        y: 1.6,
+        z: Math.sin(angle) * radius,
+      },
+      color: colors[index % colors.length],
+      ts: entry.ts ?? Date.now(),
+    };
+  }
+
+  /**
+   * Get the current presence devices.
+   */
+  getPresenceDevices(): PresenceDevice[] {
+    return this.presenceDevices;
+  }
+
+  /**
+   * Get the self instance ID.
+   */
+  getSelfInstanceId(): string | undefined {
+    return this.selfInstanceId;
+  }
+
+  /**
+   * Set the self instance ID (called when connection is established).
+   */
+  setSelfInstanceId(instanceId: string): void {
+    this.selfInstanceId = instanceId;
   }
 }
 
