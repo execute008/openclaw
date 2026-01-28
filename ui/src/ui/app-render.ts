@@ -68,6 +68,7 @@ import { loadChatHistory } from "./controllers/chat";
 import {
   applyConfig,
   loadConfig,
+  loadNotionDatabases,
   runUpdate,
   saveConfig,
   updateConfigFormValue,
@@ -520,6 +521,9 @@ export function renderApp(state: AppViewState) {
               searchQuery: state.configSearchQuery,
               activeSection: state.configActiveSection,
               activeSubsection: state.configActiveSubsection,
+              notionDatabases: state.notionDatabases,
+              notionDatabasesLoading: state.notionDatabasesLoading,
+              notionDatabasesError: state.notionDatabasesError,
               onRawChange: (next) => {
                 state.configRaw = next;
               },
@@ -535,6 +539,7 @@ export function renderApp(state: AppViewState) {
               onSave: () => saveConfig(state),
               onApply: () => applyConfig(state),
               onUpdate: () => runUpdate(state),
+              onNotionDatabasesRefresh: () => loadNotionDatabases(state),
             })
           : nothing}
 

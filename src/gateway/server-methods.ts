@@ -71,6 +71,7 @@ const READ_METHODS = new Set([
   "cron.status",
   "cron.runs",
   "n8n.workflows",
+  "notion.databases",
   "notion.projects",
   "sheets.metrics",
   "system-presence",

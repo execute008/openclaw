@@ -10,6 +10,7 @@ import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
+  validateNotionDatabasesParams,
   validateNotionProjectUpdateParams,
   validateNotionProjectsParams,
 } from "../protocol/index.js";
@@ -31,6 +32,15 @@ type NotionPage = {
 
 type NotionDatabase = {
   properties?: Record<string, { type?: string }>;
+};
+
+type NotionDatabaseEntry = {
+  id: string;
+  title?: unknown;
+  url?: string | null;
+  icon?: { type?: string; emoji?: string | null } | null;
+  created_time?: string | null;
+  last_edited_time?: string | null;
 };
 
 type NotionProjectMetadata = {
@@ -59,6 +69,19 @@ type NotionProject = {
 type NotionProjectsResult = {
   connected: boolean;
   projects: NotionProject[];
+  error?: string;
+};
+
+type NotionDatabasesResult = {
+  connected: boolean;
+  databases: Array<{
+    id: string;
+    title?: string | null;
+    url?: string | null;
+    icon?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  }>;
   error?: string;
 };
 
@@ -273,6 +296,65 @@ function parseNotionProject(page: NotionPage, map: NotionPropertyMap): NotionPro
   };
 }
 
+function parseNotionDatabase(entry: NotionDatabaseEntry): {
+  id: string;
+  title?: string | null;
+  url?: string | null;
+  icon?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+} | null {
+  if (!entry.id) return null;
+  const title = getRichTextText(entry.title);
+  const icon = entry.icon?.type === "emoji" ? (entry.icon.emoji ?? null) : null;
+  return {
+    id: entry.id,
+    title: title || null,
+    url: entry.url ?? null,
+    icon,
+    createdAt: entry.created_time ?? null,
+    updatedAt: entry.last_edited_time ?? null,
+  };
+}
+
+async function fetchNotionDatabases(params: {
+  apiKey: string;
+  timeoutSeconds: number;
+}): Promise<NotionDatabasesResult["databases"]> {
+  const databases: NotionDatabasesResult["databases"] = [];
+  const url = buildNotionUrl("/search");
+  let cursor: string | null = null;
+  let hasMore = true;
+
+  while (hasMore) {
+    const payload = await requestNotionJson({
+      url,
+      apiKey: params.apiKey,
+      timeoutSeconds: params.timeoutSeconds,
+      method: "POST",
+      body: {
+        page_size: 100,
+        filter: { property: "object", value: "database" },
+        ...(cursor ? { start_cursor: cursor } : {}),
+      },
+    });
+
+    if (!payload || typeof payload !== "object") break;
+    const record = payload as Record<string, unknown>;
+    const results = Array.isArray(record.results) ? (record.results as NotionDatabaseEntry[]) : [];
+    for (const entry of results) {
+      if (!entry || typeof entry !== "object") continue;
+      const parsed = parseNotionDatabase(entry);
+      if (parsed) databases.push(parsed);
+    }
+    hasMore = Boolean(record.has_more);
+    cursor = typeof record.next_cursor === "string" ? record.next_cursor : null;
+    if (hasMore && !cursor) break;
+  }
+
+  return databases;
+}
+
 function extractNotionPages(payload: unknown): NotionPage[] {
   if (!payload || typeof payload !== "object") return [];
   const record = payload as Record<string, unknown>;
@@ -408,6 +490,62 @@ function normalizeMetadataInput(value: unknown): NotionProjectMetadata {
 }
 
 export const notionHandlers: GatewayRequestHandlers = {
+  "notion.databases": async ({ params, respond }) => {
+    if (!validateNotionDatabasesParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid notion.databases params: ${formatValidationErrors(
+            validateNotionDatabasesParams.errors,
+          )}`,
+        ),
+      );
+      return;
+    }
+
+    const cfg = loadConfig();
+    const notionConfig = resolveNotionConfig(cfg);
+    if (!notionConfig?.enabled) {
+      respond(true, { connected: false, databases: [] } satisfies NotionDatabasesResult, undefined);
+      return;
+    }
+
+    const apiKey = notionConfig.apiKey?.trim() ?? "";
+    if (!apiKey) {
+      respond(
+        true,
+        {
+          connected: false,
+          databases: [],
+          error: "Notion apiKey not configured",
+        } satisfies NotionDatabasesResult,
+        undefined,
+      );
+      return;
+    }
+
+    const timeoutSeconds =
+      typeof notionConfig.timeoutSeconds === "number" && notionConfig.timeoutSeconds > 0
+        ? Math.floor(notionConfig.timeoutSeconds)
+        : DEFAULT_TIMEOUT_SECONDS;
+
+    try {
+      const databases = await fetchNotionDatabases({ apiKey, timeoutSeconds });
+      respond(true, { connected: true, databases } satisfies NotionDatabasesResult, undefined);
+    } catch (err) {
+      respond(
+        true,
+        {
+          connected: false,
+          databases: [],
+          error: err instanceof Error ? err.message : "Failed to fetch Notion databases",
+        } satisfies NotionDatabasesResult,
+        undefined,
+      );
+    }
+  },
   "notion.projects": async ({ params, respond }) => {
     if (!validateNotionProjectsParams(params)) {
       respond(

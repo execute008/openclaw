@@ -1,5 +1,5 @@
 import { html, nothing } from "lit";
-import type { ConfigUiHints } from "../types";
+import type { ConfigUiHints, NotionDatabasesResult } from "../types";
 import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form";
 import {
   hintForPath,
@@ -27,6 +27,9 @@ export type ConfigProps = {
   searchQuery: string;
   activeSection: string | null;
   activeSubsection: string | null;
+  notionDatabases: NotionDatabasesResult | null;
+  notionDatabasesLoading: boolean;
+  notionDatabasesError: string | null;
   onRawChange: (next: string) => void;
   onFormModeChange: (mode: "form" | "raw") => void;
   onFormPatch: (path: Array<string | number>, value: unknown) => void;
@@ -37,6 +40,7 @@ export type ConfigProps = {
   onSave: () => void;
   onApply: () => void;
   onUpdate: () => void;
+  onNotionDatabasesRefresh: () => void;
 };
 
 // SVG Icons for sidebar (Lucide-style)
@@ -183,6 +187,149 @@ function truncateValue(value: unknown, maxLen = 40): string {
   return str.slice(0, maxLen - 3) + "...";
 }
 
+function formatNotionDatabaseLabel(entry: {
+  id: string;
+  title?: string | null;
+}): string {
+  const title = entry.title?.trim() || "Untitled database";
+  const shortId = entry.id.split("-")[0] ?? entry.id.slice(0, 8);
+  return `${title} (${shortId})`;
+}
+
+function renderNotionDatabasePanel(props: ConfigProps) {
+  if (props.formMode !== "form") return nothing;
+  if (props.activeSection && props.activeSection !== "integrations") return nothing;
+
+  const form = props.formValue ?? {};
+  const integrations = (form.integrations as Record<string, unknown>) ?? {};
+  const notion = (integrations.notion as Record<string, unknown>) ?? {};
+  const enabled = Boolean(notion.enabled);
+  const apiKey = typeof notion.apiKey === "string" ? notion.apiKey.trim() : "";
+  const databaseId = typeof notion.databaseId === "string" ? notion.databaseId : "";
+  const databases = props.notionDatabases?.databases ?? [];
+  const canFetch = props.connected && enabled && apiKey.length > 0;
+  const fetchDisabled = props.notionDatabasesLoading || !canFetch;
+  const hasDatabaseOptions = databases.length > 0;
+  const errorMessage = props.notionDatabasesError ?? props.notionDatabases?.error ?? null;
+  const statusText = !enabled
+    ? "Enable Notion sync to load databases."
+    : !apiKey
+      ? "Set a Notion API key to load databases."
+      : props.notionDatabases?.connected
+        ? `Loaded ${databases.length} database${databases.length === 1 ? "" : "s"}.`
+        : "Notion connection not verified yet.";
+
+  return html`
+    <section class="config-section-card" id="config-section-integrations-notion">
+      <div class="config-section-card__header">
+        <span class="config-section-card__icon">${getSectionIcon("integrations")}</span>
+        <div class="config-section-card__titles">
+          <h3 class="config-section-card__title">Notion Projects</h3>
+          <p class="config-section-card__desc">
+            Connect to Notion and select the database that powers Halls project sync.
+          </p>
+        </div>
+      </div>
+      <div class="config-section-card__content">
+        <label class="cfg-toggle-row ${props.loading ? "disabled" : ""}">
+          <div class="cfg-toggle-row__content">
+            <span class="cfg-toggle-row__label">Enable Notion sync</span>
+            <span class="cfg-toggle-row__help">Sync Halls projects with a Notion database.</span>
+          </div>
+          <div class="cfg-toggle">
+            <input
+              type="checkbox"
+              .checked=${enabled}
+              ?disabled=${props.loading}
+              @change=${(e: Event) =>
+                props.onFormPatch(
+                  ["integrations", "notion", "enabled"],
+                  (e.target as HTMLInputElement).checked,
+                )}
+            />
+            <span class="cfg-toggle__track"></span>
+          </div>
+        </label>
+
+        <div class="cfg-field">
+          <label class="cfg-field__label">Notion API Key</label>
+          <div class="cfg-field__help">Create an internal integration token in Notion.</div>
+          <div class="cfg-input-wrap">
+            <input
+              type="password"
+              class="cfg-input"
+              placeholder=${apiKey ? "••••" : "Enter Notion API key"}
+              .value=${apiKey}
+              ?disabled=${props.loading}
+              @input=${(e: Event) => {
+                const value = (e.target as HTMLInputElement).value;
+                props.onFormPatch(["integrations", "notion", "apiKey"], value);
+              }}
+            />
+          </div>
+        </div>
+
+        <div class="cfg-field">
+          <label class="cfg-field__label">Project Database</label>
+          <div class="cfg-field__help">Select a Notion database to sync project records.</div>
+          <select
+            class="cfg-select"
+            ?disabled=${props.loading || fetchDisabled || !hasDatabaseOptions}
+            .value=${databaseId || ""}
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLSelectElement).value;
+              props.onFormPatch(["integrations", "notion", "databaseId"], value || undefined);
+            }}
+          >
+            <option value="">${hasDatabaseOptions ? "Select a database..." : "No databases loaded"}</option>
+            ${databases.map((entry) => html`
+              <option value=${entry.id}>${formatNotionDatabaseLabel(entry)}</option>
+            `)}
+          </select>
+        </div>
+
+        <div class="cfg-field">
+          <label class="cfg-field__label">Database ID</label>
+          <div class="cfg-field__help">Paste a database ID if it does not appear in the list.</div>
+          <div class="cfg-input-wrap">
+            <input
+              type="text"
+              class="cfg-input"
+              placeholder="abcdef12-3456-7890-abcd-ef1234567890"
+              .value=${databaseId}
+              ?disabled=${props.loading}
+              @input=${(e: Event) => {
+                const value = (e.target as HTMLInputElement).value.trim();
+                props.onFormPatch(
+                  ["integrations", "notion", "databaseId"],
+                  value.length ? value : undefined,
+                );
+              }}
+            />
+          </div>
+        </div>
+
+        <div class="config-actions" style="margin-top: 12px;">
+          <div class="config-actions__left">
+            <span class="config-status muted">${statusText}</span>
+          </div>
+          <div class="config-actions__right">
+            <button class="btn btn--sm" ?disabled=${fetchDisabled} @click=${props.onNotionDatabasesRefresh}>
+              ${props.notionDatabasesLoading ? "Loading…" : "Fetch databases"}
+            </button>
+          </div>
+        </div>
+
+        ${errorMessage
+          ? html`<div class="callout danger" style="margin-top: 12px;">
+              ${errorMessage}
+            </div>`
+          : nothing}
+      </div>
+    </section>
+  `;
+}
+
 export function renderConfig(props: ConfigProps) {
   const validity =
     props.valid == null ? "unknown" : props.valid ? "valid" : "invalid";
@@ -251,6 +398,7 @@ export function renderConfig(props: ConfigProps) {
     hasChanges &&
     (props.formMode === "raw" ? true : canSaveForm);
   const canUpdate = props.connected && !props.applying && !props.updating;
+  const notionPanel = renderNotionDatabasePanel(props);
 
   return html`
     <div class="config-layout">
@@ -427,6 +575,7 @@ export function renderConfig(props: ConfigProps) {
 
         <!-- Form content -->
         <div class="config-content">
+          ${notionPanel}
           ${props.formMode === "form"
             ? html`
                 ${props.schemaLoading

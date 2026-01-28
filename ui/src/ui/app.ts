@@ -23,6 +23,7 @@ import type {
   SkillStatusReport,
   StatusSummary,
   NostrProfile,
+  NotionDatabasesResult,
 } from "./types";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
@@ -174,6 +175,9 @@ export class MoltbotApp extends LitElement {
   @state() configSearchQuery = "";
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;
+  @state() notionDatabasesLoading = false;
+  @state() notionDatabasesError: string | null = null;
+  @state() notionDatabases: NotionDatabasesResult | null = null;
 
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;

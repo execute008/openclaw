@@ -515,9 +515,24 @@ export type NotionProject = {
   metadata?: NotionProjectMetadata;
 };
 
+export type NotionDatabaseEntry = {
+  id: string;
+  title?: string | null;
+  url?: string | null;
+  icon?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type NotionProjectsResult = {
   connected: boolean;
   projects: NotionProject[];
+  error?: string;
+};
+
+export type NotionDatabasesResult = {
+  connected: boolean;
+  databases: NotionDatabaseEntry[];
   error?: string;
 };
 

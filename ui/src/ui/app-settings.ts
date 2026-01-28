@@ -1,4 +1,4 @@
-import { loadConfig, loadConfigSchema } from "./controllers/config";
+import { loadConfig, loadConfigSchema, loadNotionDatabases } from "./controllers/config";
 import { loadCronJobs, loadCronStatus } from "./controllers/cron";
 import { loadChannels } from "./controllers/channels";
 import { loadDebug } from "./controllers/debug";
@@ -164,6 +164,16 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "config") {
     await loadConfigSchema(host as unknown as MoltbotApp);
     await loadConfig(host as unknown as MoltbotApp);
+    const config = (host as unknown as MoltbotApp).configSnapshot?.config as
+      | Record<string, unknown>
+      | undefined;
+    const notion = (config?.integrations as Record<string, unknown> | undefined)
+      ?.notion as Record<string, unknown> | undefined;
+    const notionEnabled = Boolean(notion?.enabled);
+    const notionApiKey = typeof notion?.apiKey === "string" ? notion.apiKey.trim() : "";
+    if (notionEnabled && notionApiKey) {
+      await loadNotionDatabases(host as unknown as MoltbotApp);
+    }
   }
   if (host.tab === "debug") {
     await loadDebug(host as unknown as MoltbotApp);

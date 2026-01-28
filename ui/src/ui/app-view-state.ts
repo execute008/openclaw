@@ -14,6 +14,7 @@ import type {
   LogEntry,
   LogLevel,
   NostrProfile,
+  NotionDatabasesResult,
   PresenceEntry,
   SessionsListResult,
   SkillStatusReport,
@@ -88,6 +89,9 @@ export type AppViewState = {
   configForm: Record<string, unknown> | null;
   configFormOriginal: Record<string, unknown> | null;
   configFormMode: "form" | "raw";
+  notionDatabasesLoading: boolean;
+  notionDatabasesError: string | null;
+  notionDatabases: NotionDatabasesResult | null;
   channelsLoading: boolean;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsError: string | null;

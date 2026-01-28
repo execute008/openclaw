@@ -38,6 +38,7 @@ const BASE_METHODS = [
   "skills.update",
   "n8n.workflows",
   "n8n.trigger",
+  "notion.databases",
   "notion.projects",
   "notion.project.update",
   "update.run",

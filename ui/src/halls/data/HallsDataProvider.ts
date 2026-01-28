@@ -384,14 +384,17 @@ export class HallsDataProvider {
     if (!this.client) throw new Error("Not connected");
 
     try {
-      if (this.notionProjectIds.has(projectId)) {
+      const isNotionProject = this.notionProjectIds.has(projectId);
+      if (isNotionProject) {
         await this.client.request<NotionProjectUpdateResult>("notion.project.update", {
           id: projectId,
           status,
         });
       }
 
-      await this.updateProjectConfig(projectId, { status });
+      if (!isNotionProject) {
+        await this.updateProjectConfig(projectId, { status });
+      }
 
       if (this.cachedSnapshot) {
         const project = this.cachedSnapshot.projects.find((p) => p.id === projectId);
@@ -415,14 +418,17 @@ export class HallsDataProvider {
 
     try {
       const notionMetadata = this.serializeNotionMetadata(metadata);
-      if (this.notionProjectIds.has(projectId)) {
+      const isNotionProject = this.notionProjectIds.has(projectId);
+      if (isNotionProject) {
         await this.client.request<NotionProjectUpdateResult>("notion.project.update", {
           id: projectId,
           metadata: notionMetadata,
         });
       }
 
-      await this.updateProjectConfig(projectId, { metadata });
+      if (!isNotionProject) {
+        await this.updateProjectConfig(projectId, { metadata });
+      }
 
       if (this.cachedSnapshot) {
         const project = this.cachedSnapshot.projects.find((p) => p.id === projectId);
@@ -665,6 +671,33 @@ export class HallsDataProvider {
     return projects;
   }
 
+  private buildNotionMetadataFallback(
+    notionMetadata: NotionProject["metadata"] | undefined,
+    savedMetadata: ProjectMetadata | undefined,
+  ): ProjectMetadata | undefined {
+    if (!savedMetadata) return undefined;
+    const base = notionMetadata ?? {};
+    const fallback: ProjectMetadata = {};
+
+    if (!base.client && savedMetadata.client) fallback.client = savedMetadata.client;
+    if (!base.deadline && savedMetadata.deadline) fallback.deadline = savedMetadata.deadline;
+    if (base.revenue === undefined && savedMetadata.revenue !== undefined) {
+      fallback.revenue = savedMetadata.revenue;
+    }
+    if (base.impact === undefined && savedMetadata.impact !== undefined) {
+      fallback.impact = savedMetadata.impact;
+    }
+    if ((!base.techStack || base.techStack.length === 0) && savedMetadata.techStack?.length) {
+      fallback.techStack = savedMetadata.techStack;
+    }
+    if (!base.description && savedMetadata.description) fallback.description = savedMetadata.description;
+    if (!base.customColor && savedMetadata.customColor) fallback.customColor = savedMetadata.customColor;
+    if (!base.icon && savedMetadata.icon) fallback.icon = savedMetadata.icon;
+    if (!base.size && savedMetadata.size) fallback.size = savedMetadata.size;
+
+    return Object.keys(fallback).length ? fallback : undefined;
+  }
+
   /**
    * Build project representations from Notion database entries.
    */
@@ -674,7 +707,9 @@ export class HallsDataProvider {
   ): Project[] {
     const summaries = notionProjects.map((project) => {
       const savedEntry = savedPositions[project.id];
-      const status = savedEntry?.status ?? resolveNotionStatus(project.status);
+      const status = project.status
+        ? resolveNotionStatus(project.status)
+        : savedEntry?.status ?? "paused";
       const type = resolveNotionType(project.type);
       const zone = this.resolveProjectZone(status, type);
       return { project, status, type, zone, savedEntry };
@@ -698,6 +733,10 @@ export class HallsDataProvider {
       const { project, status, type, zone, savedEntry } = summary;
       const savedPos = savedEntry?.position;
       const savedMetadata = savedEntry?.metadata ?? {};
+      const notionMetadataOverride = this.buildNotionMetadataFallback(
+        project.metadata,
+        savedMetadata,
+      );
       const shouldUseSavedPosition =
         Boolean(savedPos) &&
         !(zone === "lab" &&
@@ -734,7 +773,7 @@ export class HallsDataProvider {
           linkedAgents: [],
           statusOverride: status,
           typeOverride: type,
-          metadataOverride: savedMetadata,
+          metadataOverride: notionMetadataOverride,
         }),
       );
     });
@@ -913,10 +952,11 @@ export class HallsDataProvider {
       monthlyRevenue: sheetsMetrics?.monthlyRevenue ?? 0,
       pipelineValue:
         sheetsMetrics?.pipelineValue ??
-        sheetsLeads.reduce((sum, lead) => sum + (lead.value ?? 0), 0) ||
-        activeProjects * 1000,
+        (sheetsLeads.reduce((sum, lead) => sum + (lead.value ?? 0), 0) || activeProjects * 1000),
       responseRate: sheetsMetrics?.responseRate ?? (sessions.length > 0 ? 0.85 : 0),
-      activeLeads: sheetsMetrics?.activeLeads ?? sheetsLeads.length || Math.floor(sessions.length / 3),
+      activeLeads:
+        sheetsMetrics?.activeLeads ??
+        (sheetsLeads.length || Math.floor(sessions.length / 3)),
       projectsCompleted: completedProjects,
       averageProjectValue: sheetsMetrics?.averageProjectValue ?? 0,
     };

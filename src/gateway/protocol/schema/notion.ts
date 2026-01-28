@@ -2,6 +2,8 @@ import { Type } from "@sinclair/typebox";
 
 export const NotionProjectsParamsSchema = Type.Object({}, { additionalProperties: false });
 
+export const NotionDatabasesParamsSchema = Type.Object({}, { additionalProperties: false });
+
 export const NotionProjectUpdateParamsSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 }),

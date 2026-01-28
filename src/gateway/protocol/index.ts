@@ -100,6 +100,8 @@ import {
   N8nWorkflowsParamsSchema,
   type N8nTriggerParams,
   N8nTriggerParamsSchema,
+  type NotionDatabasesParams,
+  NotionDatabasesParamsSchema,
   type NotionProjectsParams,
   NotionProjectsParamsSchema,
   type NotionProjectUpdateParams,
@@ -322,6 +324,9 @@ export const validateExecApprovalsNodeSetParams = ajv.compile<ExecApprovalsNodeS
 export const validateLogsTailParams = ajv.compile<LogsTailParams>(LogsTailParamsSchema);
 export const validateN8nWorkflowsParams = ajv.compile<N8nWorkflowsParams>(N8nWorkflowsParamsSchema);
 export const validateN8nTriggerParams = ajv.compile<N8nTriggerParams>(N8nTriggerParamsSchema);
+export const validateNotionDatabasesParams = ajv.compile<NotionDatabasesParams>(
+  NotionDatabasesParamsSchema,
+);
 export const validateNotionProjectsParams = ajv.compile<NotionProjectsParams>(
   NotionProjectsParamsSchema,
 );

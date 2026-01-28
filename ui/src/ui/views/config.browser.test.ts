@@ -26,6 +26,9 @@ describe("config view", () => {
     searchQuery: "",
     activeSection: null,
     activeSubsection: null,
+    notionDatabases: null,
+    notionDatabasesLoading: false,
+    notionDatabasesError: null,
     onRawChange: vi.fn(),
     onFormModeChange: vi.fn(),
     onFormPatch: vi.fn(),
@@ -36,6 +39,7 @@ describe("config view", () => {
     onApply: vi.fn(),
     onUpdate: vi.fn(),
     onSubsectionChange: vi.fn(),
+    onNotionDatabasesRefresh: vi.fn(),
   });
 
   it("allows save when form is unsafe", () => {

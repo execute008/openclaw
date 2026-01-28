@@ -30,6 +30,12 @@ function createState(): ConfigState {
     configFormOriginal: null,
     configFormDirty: false,
     configFormMode: "form",
+    configSearchQuery: "",
+    configActiveSection: null,
+    configActiveSubsection: null,
+    notionDatabasesLoading: false,
+    notionDatabasesError: null,
+    notionDatabases: null,
     lastError: null,
   };
 }
