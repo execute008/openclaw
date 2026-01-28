@@ -31,6 +31,7 @@ import { ProjectStation } from "./objects/ProjectStation";
 import { WorkflowConduit } from "./objects/WorkflowConduit";
 import { HolographicUI, type PanelAction } from "./objects/HolographicUI";
 import { AmbientAudio } from "./audio/AmbientAudio";
+import { VoiceCommandSystem, type VoiceCommandAction } from "./voice";
 import { hallsDataProvider, type HallsDataSnapshot } from "./data/HallsDataProvider";
 import {
   HALLS_COLORS,
@@ -75,6 +76,7 @@ export class HallsScene {
   private particles: ParticleSystem;
   private circuitFloor: CircuitFloor;
   private audio: AmbientAudio;
+  private voice: VoiceCommandSystem;
   private holographicUI: HolographicUI;
 
   // Object collections
@@ -228,6 +230,10 @@ export class HallsScene {
     this.particles = new ParticleSystem(this.scene, this.config);
     this.circuitFloor = new CircuitFloor(this.scene);
     this.audio = new AmbientAudio(this.config);
+    this.voice = new VoiceCommandSystem({
+      container: this.container,
+      onCommand: (action) => this.handleVoiceCommand(action),
+    });
     this.holographicUI = new HolographicUI(this.scene);
     this.vrWristMenu = new VRWristMenu({
       scene: this.scene,
@@ -636,6 +642,13 @@ export class HallsScene {
         // Toggle help overlay
         this.helpOverlay.toggle();
         break;
+      case "v":
+      case "V":
+        // Toggle voice commands
+        if (!event.ctrlKey && !event.metaKey) {
+          this.voice.toggle();
+        }
+        break;
       case "1":
         // Quick-travel to Forge
         this.teleportToZone("forge");
@@ -670,6 +683,59 @@ export class HallsScene {
       payload: { zone, name: zoneData.name },
       timestamp: Date.now(),
     });
+  }
+
+  /**
+   * Handle voice command actions.
+   */
+  private handleVoiceCommand(action: VoiceCommandAction) {
+    switch (action) {
+      // Navigation commands
+      case "navigate:forge":
+        this.teleportToZone("forge");
+        break;
+      case "navigate:incubator":
+        this.teleportToZone("incubator");
+        break;
+      case "navigate:archive":
+        this.teleportToZone("archive");
+        break;
+      case "navigate:lab":
+        this.teleportToZone("lab");
+        break;
+      case "navigate:command":
+        this.teleportToZone("command");
+        break;
+
+      // UI toggle commands
+      case "toggle:minimap":
+        this.minimap.toggle();
+        break;
+      case "toggle:help":
+        this.helpOverlay.toggle();
+        break;
+      case "toggle:grid":
+        this.dragControls.toggleGrid();
+        break;
+
+      // Selection commands
+      case "action:deselect":
+        if (this.selectedStation) {
+          this.selectedStation.setSelected(false);
+          this.selectedStation = null;
+          this.holographicUI.hide();
+        }
+        break;
+      case "action:focus":
+        if (this.selectedStation) {
+          this.controls.focusOn(this.selectedStation.getMesh().position);
+        }
+        break;
+
+      // Voice control - handled by VoiceCommandSystem itself
+      case "voice:stop":
+        break;
+    }
   }
 
   /**
@@ -984,6 +1050,7 @@ export class HallsScene {
     this.lab.dispose();
     this.holographicUI.dispose();
     this.audio.dispose();
+    this.voice.dispose();
 
     for (const [, station] of this.projectStations) {
       station.dispose();
