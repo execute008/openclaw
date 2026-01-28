@@ -50,6 +50,7 @@ import {
   rotateDeviceToken,
 } from "./controllers/devices";
 import { renderSkills } from "./views/skills";
+import { renderHalls } from "./views/halls";
 import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers";
 import { loadChannels } from "./controllers/channels";
 import { loadPresence } from "./controllers/presence";
@@ -574,6 +575,15 @@ export function renderApp(state: AppViewState) {
               onRefresh: () => loadLogs(state, { reset: true }),
               onExport: (lines, label) => state.exportLogs(lines, label),
               onScroll: (event) => state.handleLogsScroll(event),
+            })
+          : nothing}
+
+        ${state.tab === "halls"
+          ? renderHalls({
+              connected: state.connected,
+              client: state.client,
+              onBackToUI: () => state.setTab("chat"),
+              onOpenSettings: () => state.setTab("config"),
             })
           : nothing}
       </main>

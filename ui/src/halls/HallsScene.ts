@@ -14,10 +14,12 @@ import { DesktopControls } from "./controls/DesktopControls";
 import { DragControls } from "./controls/DragControls";
 import { VRControllerInput } from "./controls/VRControllerInput";
 import { VRControls } from "./controls/VRControls";
+import { VRHandTracking } from "./controls/VRHandTracking";
 import { VRTeleport } from "./controls/VRTeleport";
 import { UndoRedoManager } from "./systems/UndoRedoManager";
 import { Minimap } from "./ui/Minimap";
 import { HelpOverlay } from "./ui/HelpOverlay";
+import { VRWristMenu, type WristMenuAction } from "./ui/VRWristMenu";
 import { ForgeEnvironment, ZONE_POSITIONS, type ZoneKey } from "./environment/Forge";
 import { IncubatorEnvironment } from "./environment/Incubator";
 import { ArchiveEnvironment } from "./environment/Archive";
@@ -57,8 +59,10 @@ export class HallsScene {
   private controls: DesktopControls;
   private dragControls: DragControls;
   private vrInput: VRControllerInput;
+  private vrHands: VRHandTracking;
   private vrControls: VRControls;
   private vrTeleport: VRTeleport;
+  private vrWristMenu: VRWristMenu;
   private undoRedoManager: UndoRedoManager;
   private minimap: Minimap;
   private helpOverlay: HelpOverlay;
@@ -88,6 +92,10 @@ export class HallsScene {
   private hoveredObject: THREE.Object3D | null = null;
   private selectedStation: ProjectStation | null = null;
   private teleportSurfaces: THREE.Object3D[] = [];
+  private handScaleTarget:
+    | { type: "station"; station: ProjectStation; baseScale: number }
+    | { type: "ui"; baseScale: number }
+    | null = null;
 
   // Performance
   private lastFrameTime = 0;
@@ -180,6 +188,8 @@ export class HallsScene {
         this.startXrLoop();
         this.vrTeleport.setEnabled(true);
         this.vrInput.setEnabled(true);
+        this.vrHands.setEnabled(true);
+        this.vrWristMenu.setEnabled(true);
         if (this.hoveredObject) {
           const prevStation = this.findStationByMesh(this.hoveredObject);
           prevStation?.setHovered(false);
@@ -195,6 +205,8 @@ export class HallsScene {
         this.stopXrLoop();
         this.vrTeleport.setEnabled(false);
         this.vrInput.setEnabled(false);
+        this.vrHands.setEnabled(false);
+        this.vrWristMenu.setEnabled(false);
         this.emitEvent({
           type: "controls:unlock",
           payload: { mode: "vr" },
@@ -214,13 +226,35 @@ export class HallsScene {
     this.circuitFloor = new CircuitFloor(this.scene);
     this.audio = new AmbientAudio(this.config);
     this.holographicUI = new HolographicUI(this.scene);
+    this.vrWristMenu = new VRWristMenu({
+      scene: this.scene,
+      renderer: this.renderer,
+      camera: this.camera,
+      onAction: (action) => this.handleWristMenuAction(action),
+    });
+    this.vrHands = new VRHandTracking({
+      scene: this.scene,
+      renderer: this.renderer,
+      getInteractables: () => Array.from(this.projectStations.values()).map((s) => s.getMesh()),
+      resolveStation: (mesh) => this.findStationByMesh(mesh),
+      onSelectStation: (station) => this.toggleStationSelection(station),
+      onPinchStart: (origin, direction) => this.vrWristMenu.handleRay(origin, direction),
+      onScaleStart: () => this.beginHandScale(),
+      onScale: (scaleFactor) => this.updateHandScale(scaleFactor),
+      onScaleEnd: () => this.endHandScale(),
+    });
     this.teleportSurfaces = this.collectTeleportSurfaces();
     this.vrTeleport = new VRTeleport({
       scene: this.scene,
       camera: this.camera,
       renderer: this.renderer,
       teleportSurfaces: this.teleportSurfaces,
-      onSelectStart: (controller) => this.vrInput.handleSelectStart(controller),
+      onSelectStart: (controller) => {
+        if (this.vrWristMenu.handleSelect(controller)) {
+          return true;
+        }
+        return this.vrInput.handleSelectStart(controller);
+      },
     });
 
     // Setup minimap click-to-teleport
@@ -654,6 +688,56 @@ export class HallsScene {
     }
   }
 
+  private handleWristMenuAction(action: WristMenuAction) {
+    switch (action.id) {
+      case "quick:minimap":
+        this.minimap.toggle();
+        break;
+      case "quick:help":
+        this.helpOverlay.toggle();
+        break;
+      case "quick:deselect":
+        if (this.selectedStation) {
+          this.selectedStation.setSelected(false);
+          this.selectedStation = null;
+          this.holographicUI.hide();
+        }
+        break;
+      case "quick:focus":
+        if (this.selectedStation) {
+          this.controls.focusOn(this.selectedStation.getMesh().position);
+          this.emitEvent({
+            type: "project:focus",
+            payload: this.selectedStation.getProject(),
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      case "zone:forge":
+        this.teleportToZone("forge");
+        break;
+      case "zone:incubator":
+        this.teleportToZone("incubator");
+        break;
+      case "zone:archive":
+        this.teleportToZone("archive");
+        break;
+      case "zone:lab":
+        this.teleportToZone("lab");
+        break;
+      case "zone:command":
+        this.teleportToZone("command");
+        break;
+      case "settings":
+        this.emitEvent({
+          type: "ui:settings",
+          payload: null,
+          timestamp: Date.now(),
+        });
+        break;
+    }
+  }
+
   /**
    * Emit event to all handlers.
    */
@@ -742,6 +826,8 @@ export class HallsScene {
     this.controls.update(delta);
     this.dragControls.update(delta);
     this.vrInput.update(delta);
+    this.vrHands.update(delta);
+    this.vrWristMenu.update();
     this.vrTeleport.update(delta);
 
     // Update minimap with camera position
@@ -842,6 +928,8 @@ export class HallsScene {
     this.vrInput.dispose();
     this.vrControls.dispose();
     this.vrTeleport.dispose();
+    this.vrHands.dispose();
+    this.vrWristMenu.dispose();
     this.undoRedoManager.dispose();
     this.minimap.dispose();
     this.helpOverlay.dispose();
@@ -902,6 +990,38 @@ export class HallsScene {
    */
   getSelectedProject(): Project | null {
     return this.selectedStation?.getProject() ?? null;
+  }
+
+  private beginHandScale() {
+    if (this.selectedStation) {
+      this.handScaleTarget = {
+        type: "station",
+        station: this.selectedStation,
+        baseScale: this.selectedStation.getGestureScale(),
+      };
+      return;
+    }
+
+    if (this.holographicUI.isVisible()) {
+      this.handScaleTarget = {
+        type: "ui",
+        baseScale: this.holographicUI.getScale(),
+      };
+    }
+  }
+
+  private updateHandScale(scaleFactor: number) {
+    if (!this.handScaleTarget) return;
+    const clamped = Math.min(1.8, Math.max(0.6, this.handScaleTarget.baseScale * scaleFactor));
+    if (this.handScaleTarget.type === "station") {
+      this.handScaleTarget.station.setGestureScale(clamped);
+    } else {
+      this.holographicUI.setScale(clamped);
+    }
+  }
+
+  private endHandScale() {
+    this.handScaleTarget = null;
   }
 
   /**

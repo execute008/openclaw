@@ -26,6 +26,7 @@ export interface ProjectMetadata {
   client?: string;
   deadline?: Date;
   revenue?: number;
+  impact?: string | number;
   techStack?: string[];
   description?: string;
   // Customization options
@@ -279,7 +280,8 @@ export type HallsEventType =
   | "zone:exit"
   | "metrics:update"
   | "controls:lock"
-  | "controls:unlock";
+  | "controls:unlock"
+  | "ui:settings";
 
 export interface HallsEvent {
   type: HallsEventType;

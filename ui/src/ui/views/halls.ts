@@ -1,0 +1,330 @@
+/**
+ * Halls of Creation - Lit View Component
+ *
+ * Wrapper that integrates the Three.js scene with the Lit-based UI.
+ * Manages lifecycle, gateway connection, and keyboard shortcuts.
+ */
+
+import { html, nothing } from "lit";
+import { ref, createRef, type Ref } from "lit/directives/ref.js";
+import type { GatewayBrowserClient } from "../gateway";
+import type { Project } from "../../halls/data/types";
+
+export interface HallsViewProps {
+  connected: boolean;
+  client: GatewayBrowserClient | null;
+  onBackToUI: () => void;
+  onOpenSettings: () => void;
+}
+
+// Module-level state for the 3D scene
+interface HallsState {
+  scene: any | null;
+  containerRef: Ref<HTMLDivElement>;
+  isInitialized: boolean;
+  isLoading: boolean;
+  selectedProject: Project | null;
+  controlsLocked: boolean;
+  fps: number;
+  showHelp: boolean;
+  error: string | null;
+}
+
+const state: HallsState = {
+  scene: null,
+  containerRef: createRef<HTMLDivElement>(),
+  isInitialized: false,
+  isLoading: false,
+  selectedProject: null,
+  controlsLocked: false,
+  fps: 60,
+  showHelp: true,
+  error: null,
+};
+
+/**
+ * Initialize the halls scene when entering the view.
+ */
+async function initializeScene(
+  container: HTMLDivElement,
+  client: GatewayBrowserClient | null,
+  onOpenSettings: () => void,
+) {
+  if (state.isInitialized || state.isLoading || !container) return;
+
+  state.isLoading = true;
+  state.error = null;
+
+  try {
+    // Dynamically import Three.js modules to enable code splitting
+    const [{ HallsScene }, { hallsDataProvider }] = await Promise.all([
+      import("../../halls/HallsScene"),
+      import("../../halls/data/HallsDataProvider"),
+    ]);
+
+    // Connect data provider to gateway
+    if (client) {
+      hallsDataProvider.connect(client);
+    }
+
+    // Create scene
+    state.scene = new HallsScene({
+      container,
+      onEvent: (event) => {
+        switch (event.type) {
+          case "project:select":
+            state.selectedProject = event.payload as Project | null;
+            break;
+          case "controls:lock":
+            state.controlsLocked = true;
+            break;
+          case "controls:unlock":
+            state.controlsLocked = false;
+            break;
+          case "ui:settings":
+            cleanupScene();
+            onOpenSettings();
+            break;
+        }
+      },
+    });
+
+    state.scene.start();
+    state.isInitialized = true;
+    state.isLoading = false;
+
+    // Start FPS update interval
+    setInterval(() => {
+      if (state.scene) {
+        state.fps = state.scene.getFPS();
+        state.controlsLocked = state.scene.isControlsLocked();
+      }
+    }, 500);
+
+    // Hide help after a few seconds
+    setTimeout(() => {
+      state.showHelp = false;
+    }, 10000);
+  } catch (err) {
+    console.error("[Halls] Failed to initialize:", err);
+    state.error = err instanceof Error ? err.message : "Failed to initialize 3D scene";
+    state.isLoading = false;
+  }
+}
+
+/**
+ * Cleanup when leaving the view.
+ */
+function cleanupScene() {
+  if (state.scene) {
+    state.scene.stop();
+  }
+}
+
+/**
+ * Full disposal when component is destroyed.
+ */
+export function disposeHalls() {
+  if (state.scene) {
+    state.scene.dispose();
+    state.scene = null;
+  }
+  state.isInitialized = false;
+  state.selectedProject = null;
+  state.controlsLocked = false;
+}
+
+/**
+ * Render the halls view.
+ */
+export function renderHalls(props: HallsViewProps) {
+  const { connected, client, onBackToUI, onOpenSettings } = props;
+
+  // Handle container initialization when it becomes available
+  const handleContainerRef = (el: Element | undefined) => {
+    if (el instanceof HTMLDivElement && connected && !state.isInitialized && !state.isLoading) {
+      initializeScene(el, client, onOpenSettings).catch(console.error);
+    }
+  };
+
+  return html`
+    <div class="halls-container" data-locked="${state.controlsLocked}">
+      <!-- 3D Canvas Container -->
+      <div
+        class="halls-canvas"
+        ${ref(handleContainerRef)}
+      >
+        ${!connected
+          ? html`
+              <div class="halls-overlay halls-overlay--disconnected">
+                <div class="halls-overlay__content">
+                  <h2>Gateway Disconnected</h2>
+                  <p>Connect to the gateway to enter the Halls of Creation</p>
+                </div>
+              </div>
+            `
+          : state.error
+            ? html`
+                <div class="halls-overlay halls-overlay--error">
+                  <div class="halls-overlay__content">
+                    <h2>Initialization Error</h2>
+                    <p>${state.error}</p>
+                    <button
+                      class="halls-retry-button"
+                      @click=${() => {
+                        state.error = null;
+                        state.isLoading = false;
+                        const el = document.querySelector(".halls-canvas") as HTMLDivElement;
+                        if (el) initializeScene(el, client, onOpenSettings).catch(console.error);
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              `
+            : state.isLoading
+              ? html`
+                  <div class="halls-overlay halls-overlay--loading">
+                    <div class="halls-overlay__content">
+                      <div class="halls-loader"></div>
+                      <h2>Entering the Halls of Creation</h2>
+                      <p>Loading 3D environment...</p>
+                    </div>
+                  </div>
+                `
+              : !state.isInitialized
+                ? html`
+                    <div
+                      class="halls-overlay halls-overlay--ready"
+                      @click=${() => {
+                        const el = document.querySelector(".halls-canvas") as HTMLDivElement;
+                        if (el && connected) {
+                          initializeScene(el, client, onOpenSettings).catch(console.error);
+                        }
+                      }}
+                    >
+                      <div class="halls-overlay__content">
+                        <div class="halls-logo">
+                          <svg viewBox="0 0 100 100" width="80" height="80">
+                            <polygon
+                              points="50,10 90,30 90,70 50,90 10,70 10,30"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            />
+                            <polygon
+                              points="50,25 75,37 75,63 50,75 25,63 25,37"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.5"
+                              opacity="0.6"
+                            />
+                            <circle cx="50" cy="50" r="8" fill="currentColor" opacity="0.8" />
+                          </svg>
+                        </div>
+                        <h2>Halls of Creation</h2>
+                        <p>Click to enter your 3D command center</p>
+                        <p class="halls-tagline">
+                          "Hunt your ideas until they become working systems"
+                        </p>
+                      </div>
+                    </div>
+                  `
+                : nothing}
+      </div>
+
+      <!-- Controls Help Overlay -->
+      ${state.isInitialized && state.showHelp
+        ? html`
+            <div class="halls-help">
+              <h3>Controls</h3>
+              <div class="halls-help__row">
+                <kbd>Click</kbd>
+                <span>Lock mouse look</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>W A S D</kbd>
+                <span>Move</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>Mouse</kbd>
+                <span>Look around</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>Shift</kbd>
+                <span>Sprint</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>Space</kbd>
+                <span>Ascend</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>Ctrl</kbd>
+                <span>Descend</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>E</kbd>
+                <span>Focus on selection</span>
+              </div>
+              <div class="halls-help__row">
+                <kbd>Esc</kbd>
+                <span>Exit / Unlock mouse</span>
+              </div>
+              <button
+                class="halls-help__close"
+                @click=${() => { state.showHelp = false; }}
+              >
+                Got it
+              </button>
+            </div>
+          `
+        : nothing}
+
+      <!-- Status Bar -->
+      ${state.isInitialized
+        ? html`
+            <div class="halls-status">
+              <div class="halls-status__item">
+                <span class="halls-status__label">FPS</span>
+                <span class="halls-status__value ${state.fps < 30 ? "warn" : ""}">${state.fps}</span>
+              </div>
+              <div class="halls-status__item">
+                <span class="halls-status__label">Mode</span>
+                <span class="halls-status__value">${state.controlsLocked ? "Exploring" : "Menu"}</span>
+              </div>
+              ${state.selectedProject
+                ? html`
+                    <div class="halls-status__item halls-status__item--project">
+                      <span class="halls-status__label">Selected</span>
+                      <span class="halls-status__value">${state.selectedProject.name}</span>
+                    </div>
+                  `
+                : nothing}
+              <button
+                class="halls-status__button"
+                @click=${() => { state.showHelp = !state.showHelp; }}
+              >
+                ${state.showHelp ? "Hide Help" : "?"}
+              </button>
+            </div>
+          `
+        : nothing}
+
+      <!-- Exit Button -->
+      <button
+        class="halls-exit"
+        @click=${() => {
+          cleanupScene();
+          onBackToUI();
+        }}
+        title="Exit to Dashboard (Esc)"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+        </svg>
+        Exit 3D View
+      </button>
+    </div>
+  `;
+}

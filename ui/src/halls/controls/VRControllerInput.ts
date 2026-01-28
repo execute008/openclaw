@@ -120,12 +120,17 @@ export class VRControllerInput {
       onSqueezeEnd: () => undefined,
     };
 
+    controller.userData.connected = false;
+    controller.userData.handedness = "none";
+
     state.onConnected = (event: Event) => {
       const data = (event as { data?: XRInputSource }).data;
       if (!data) return;
       state.inputSource = data;
       state.gamepad = data.gamepad ?? null;
       state.handedness = (data.handedness ?? "none") as ControllerState["handedness"];
+      state.controller.userData.connected = true;
+      state.controller.userData.handedness = state.handedness;
     };
 
     state.onDisconnected = () => {
@@ -135,6 +140,7 @@ export class VRControllerInput {
       state.inputSource = null;
       state.gamepad = null;
       state.handedness = "none";
+      state.controller.userData.connected = false;
     };
 
     state.onSqueezeStart = () => {
