@@ -12,6 +12,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 
 import { DesktopControls } from "./controls/DesktopControls";
 import { DragControls } from "./controls/DragControls";
+import { VRControls } from "./controls/VRControls";
 import { UndoRedoManager } from "./systems/UndoRedoManager";
 import { Minimap } from "./ui/Minimap";
 import { HelpOverlay } from "./ui/HelpOverlay";
@@ -53,6 +54,7 @@ export class HallsScene {
   // Subsystems
   private controls: DesktopControls;
   private dragControls: DragControls;
+  private vrControls: VRControls;
   private undoRedoManager: UndoRedoManager;
   private minimap: Minimap;
   private helpOverlay: HelpOverlay;
@@ -75,6 +77,7 @@ export class HallsScene {
   private config: HallsConfig;
   private isRunning = false;
   private animationFrameId: number | null = null;
+  private isXrActive = false;
   private eventHandlers: Set<HallsEventHandler> = new Set();
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
@@ -140,6 +143,27 @@ export class HallsScene {
     this.controls = new DesktopControls(this.camera, this.renderer.domElement);
     this.dragControls = new DragControls(this.camera, this.renderer.domElement);
     this.dragControls.setScene(this.scene);
+    this.vrControls = new VRControls({
+      container: this.container,
+      renderer: this.renderer,
+      onSessionStart: () => {
+        this.controls.unlock();
+        this.startXrLoop();
+        this.emitEvent({
+          type: "controls:lock",
+          payload: { mode: "vr" },
+          timestamp: Date.now(),
+        });
+      },
+      onSessionEnd: () => {
+        this.stopXrLoop();
+        this.emitEvent({
+          type: "controls:unlock",
+          payload: { mode: "vr" },
+          timestamp: Date.now(),
+        });
+      },
+    });
     this.undoRedoManager = new UndoRedoManager();
     this.minimap = new Minimap(this.container);
     this.helpOverlay = new HelpOverlay(this.container);
@@ -633,10 +657,13 @@ export class HallsScene {
    * Main animation loop.
    */
   private animate = () => {
-    if (!this.isRunning) return;
+    if (!this.isRunning || this.isXrActive) return;
 
     this.animationFrameId = requestAnimationFrame(this.animate);
+    this.renderFrame();
+  };
 
+  private renderFrame() {
     const delta = this.clock.getDelta();
     const elapsed = this.clock.getElapsedTime();
 
@@ -678,8 +705,34 @@ export class HallsScene {
     }
 
     // Render
-    this.composer.render();
-  };
+    if (this.isXrActive) {
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.composer.render();
+    }
+  }
+
+  private startXrLoop() {
+    if (this.isXrActive) return;
+    this.isXrActive = true;
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    this.renderer.setAnimationLoop(() => {
+      if (!this.isRunning || !this.isXrActive) return;
+      this.renderFrame();
+    });
+  }
+
+  private stopXrLoop() {
+    if (!this.isXrActive) return;
+    this.isXrActive = false;
+    this.renderer.setAnimationLoop(null);
+    if (this.isRunning) {
+      this.animate();
+    }
+  }
 
   /**
    * Start the scene rendering.
@@ -708,6 +761,9 @@ export class HallsScene {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    if (this.isXrActive) {
+      this.stopXrLoop();
+    }
     this.audio.stop();
   }
 
@@ -718,6 +774,7 @@ export class HallsScene {
     this.stop();
     this.controls.dispose();
     this.dragControls.dispose();
+    this.vrControls.dispose();
     this.undoRedoManager.dispose();
     this.minimap.dispose();
     this.helpOverlay.dispose();
