@@ -2,6 +2,7 @@ import type { IconName } from "./icons.js";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] },
+  { label: "Workspace", tabs: ["halls"] },
   {
     label: "Control",
     tabs: ["overview", "channels", "instances", "sessions", "cron"],
@@ -21,7 +22,8 @@ export type Tab =
   | "chat"
   | "config"
   | "debug"
-  | "logs";
+  | "logs"
+  | "halls";
 
 const TAB_PATHS: Record<Tab, string> = {
   overview: "/overview",
@@ -35,6 +37,7 @@ const TAB_PATHS: Record<Tab, string> = {
   config: "/config",
   debug: "/debug",
   logs: "/logs",
+  halls: "/halls",
 };
 
 const PATH_TO_TAB = new Map(
@@ -124,6 +127,8 @@ export function iconForTab(tab: Tab): IconName {
       return "bug";
     case "logs":
       return "scrollText";
+    case "halls":
+      return "box";
     default:
       return "folder";
   }
@@ -153,6 +158,8 @@ export function titleForTab(tab: Tab) {
       return "Debug";
     case "logs":
       return "Logs";
+    case "halls":
+      return "Halls of Creation";
     default:
       return "Control";
   }
@@ -182,6 +189,8 @@ export function subtitleForTab(tab: Tab) {
       return "Gateway snapshots, events, and manual RPC calls.";
     case "logs":
       return "Live tail of the gateway file logs.";
+    case "halls":
+      return "3D command center. Hunt your ideas until they become working systems.";
     default:
       return "";
   }

@@ -316,7 +316,7 @@ importers:
     devDependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   extensions/imessage: {}
 
@@ -324,7 +324,7 @@ importers:
     devDependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   extensions/llm-task: {}
 
@@ -350,7 +350,7 @@ importers:
     devDependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   extensions/mattermost: {}
 
@@ -358,7 +358,7 @@ importers:
     devDependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   extensions/memory-lancedb:
     dependencies:
@@ -383,12 +383,12 @@ importers:
       '@microsoft/agents-hosting-extensions-teams':
         specifier: ^1.2.2
         version: 1.2.2
-      moltbot:
-        specifier: workspace:*
-        version: link:../..
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      moltbot:
+        specifier: workspace:*
+        version: link:../../packages/clawdbot
       proper-lockfile:
         specifier: ^4.1.2
         version: 4.1.2
@@ -399,7 +399,7 @@ importers:
     dependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
       nostr-tools:
         specifier: ^2.20.0
         version: 2.20.0(typescript@5.9.3)
@@ -441,7 +441,7 @@ importers:
     devDependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   extensions/voice-call:
     dependencies:
@@ -461,7 +461,7 @@ importers:
     dependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
       undici:
         specifier: 7.19.0
         version: 7.19.0
@@ -473,13 +473,13 @@ importers:
         version: 0.34.47
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/clawdbot
 
   packages/clawdbot:
     dependencies:
       moltbot:
         specifier: workspace:*
-        version: link:../..
+        version: 'link:'
 
   ui:
     dependencies:
@@ -495,10 +495,16 @@ importers:
       marked:
         specifier: ^17.0.1
         version: 17.0.1
+      three:
+        specifier: ^0.170.0
+        version: 0.170.0
       vite:
         specifier: 7.3.1
         version: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
     devDependencies:
+      '@types/three':
+        specifier: ^0.170.0
+        version: 0.170.0
       '@vitest/browser-playwright':
         specifier: 4.0.18
         version: 4.0.18(playwright@1.58.0)(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))(vitest@4.0.18)
@@ -2643,6 +2649,9 @@ packages:
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
 
+  '@tweenjs/tween.js@23.1.3':
+    resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
+
   '@twurple/api-call@8.0.3':
     resolution: {integrity: sha512-/5DBTqFjpYB+qqOkkFzoTWE79a7+I8uLXmBIIIYjGoq/CIPxKcHnlemXlU8cQhTr87PVa3th8zJXGYiNkpRx8w==}
 
@@ -2779,11 +2788,20 @@ packages:
   '@types/serve-static@2.2.0':
     resolution: {integrity: sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ==}
 
+  '@types/stats.js@0.17.4':
+    resolution: {integrity: sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA==}
+
+  '@types/three@0.170.0':
+    resolution: {integrity: sha512-CUm2uckq+zkCY7ZbFpviRttY+6f9fvwm6YqSqPfA5K22s9w7R4VnA3rzJse8kHVvuzLcTx+CjNCs2NYe0QFAyg==}
+
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
+
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
@@ -2902,6 +2920,9 @@ packages:
 
   '@wasm-audio-decoders/opus-ml@0.0.2':
     resolution: {integrity: sha512-58rWEqDGg+CKCyEeKm2KoxxSwTWtHh/NLTW9ObR4K8CGF6VwuuGudEI1CtniS/oSRmL1nJq/eh8MKARiluw4DQ==}
+
+  '@webgpu/types@0.1.69':
+    resolution: {integrity: sha512-RPmm6kgRbI8e98zSD3RVACvnuktIja5+yLgDAkTmxLr90BEwdTXRQWNLF3ETTTyH/8mKhznZuN5AveXYFEsMGQ==}
 
   '@webreflection/alien-signals@0.3.2':
     resolution: {integrity: sha512-DmNjD8Kq5iM+Toirp3llS/izAiI3Dwav5nHRvKdR/YJBTgun3y4xK76rs9CFYD2bZwZJN/rP+HjEqKTteGK+Yw==}
@@ -3213,11 +3234,6 @@ packages:
 
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
-
-  clawdbot@2026.1.24-3:
-    resolution: {integrity: sha512-zt9BzhWXduq8ZZR4rfzQDurQWAgmijTTyPZCQGrn5ew6wCEwhxxEr2/NHG7IlCwcfRsKymsY4se9KMhoNz0JtQ==}
-    engines: {node: '>=22.12.0'}
-    hasBin: true
 
   cli-cursor@5.0.0:
     resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
@@ -3584,6 +3600,9 @@ packages:
   fetch-blob@3.2.0:
     resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
     engines: {node: ^12.20 || >= 14.13}
+
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
   file-type@21.3.0:
     resolution: {integrity: sha512-8kPJMIGz1Yt/aPEwOsrR97ZyZaD1Iqm8PClb1nYFclUCkBi0Ma5IsYNQzvSFS9ib51lWyIw5mIT9rWzI/xjpzA==}
@@ -4288,6 +4307,9 @@ packages:
   merge2@1.4.1:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
+
+  meshoptimizer@0.18.1:
+    resolution: {integrity: sha512-ZhoIoL7TNV4s5B6+rx5mC//fw8/POGyNxS/DZyCJeiZ12ScLfVwRE/GfsxwiTkMYYD5DmK2/JXnEVXqL4rF+Sw==}
 
   methods@1.1.2:
     resolution: {integrity: sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==}
@@ -5193,6 +5215,7 @@ packages:
   tar@7.5.4:
     resolution: {integrity: sha512-AN04xbWGrSTDmVwlI4/GTlIIwMFk/XEv7uL8aa57zuvRy6s4hdBed+lVq2fAZ89XDa7Us3ANXcE3Tvqvja1kTA==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}
@@ -5203,6 +5226,9 @@ packages:
 
   thread-stream@3.1.0:
     resolution: {integrity: sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==}
+
+  three@0.170.0:
+    resolution: {integrity: sha512-FQK+LEpYc0fBD+J8g6oSEyyNzjp+Q7Ks1C568WWaoMRLW+TkNNWmenWeGgJjV105Gd+p/2ql1ZcjYvNiPZBhuQ==}
 
   tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
@@ -8375,6 +8401,8 @@ snapshots:
 
   '@tokenizer/token@0.3.0': {}
 
+  '@tweenjs/tween.js@23.1.3': {}
+
   '@twurple/api-call@8.0.3':
     dependencies:
       '@d-fischer/shared-utils': 3.6.4
@@ -8569,9 +8597,22 @@ snapshots:
       '@types/http-errors': 2.0.5
       '@types/node': 25.0.10
 
+  '@types/stats.js@0.17.4': {}
+
+  '@types/three@0.170.0':
+    dependencies:
+      '@tweenjs/tween.js': 23.1.3
+      '@types/stats.js': 0.17.4
+      '@types/webxr': 0.5.24
+      '@webgpu/types': 0.1.69
+      fflate: 0.8.2
+      meshoptimizer: 0.18.1
+
   '@types/tough-cookie@4.0.5': {}
 
   '@types/trusted-types@2.0.7': {}
+
+  '@types/webxr@0.5.24': {}
 
   '@types/ws@8.18.1':
     dependencies:
@@ -8755,6 +8796,8 @@ snapshots:
     dependencies:
       '@wasm-audio-decoders/common': 9.0.7
     optional: true
+
+  '@webgpu/types@0.1.69': {}
 
   '@webreflection/alien-signals@0.3.2':
     dependencies:
@@ -9097,84 +9140,6 @@ snapshots:
   class-variance-authority@0.7.1:
     dependencies:
       clsx: 2.1.1
-
-  clawdbot@2026.1.24-3(@types/express@5.0.6)(audio-decode@2.2.3)(devtools-protocol@0.0.1561482)(typescript@5.9.3):
-    dependencies:
-      '@agentclientprotocol/sdk': 0.13.1(zod@4.3.6)
-      '@aws-sdk/client-bedrock': 3.975.0
-      '@buape/carbon': 0.14.0(hono@4.11.4)
-      '@clack/prompts': 0.11.0
-      '@grammyjs/runner': 2.0.3(grammy@1.39.3)
-      '@grammyjs/transformer-throttler': 1.2.1(grammy@1.39.3)
-      '@homebridge/ciao': 1.3.4
-      '@line/bot-sdk': 10.6.0
-      '@lydell/node-pty': 1.2.0-beta.3
-      '@mariozechner/pi-agent-core': 0.49.3(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.49.3(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-coding-agent': 0.49.3(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.49.3
-      '@mozilla/readability': 0.6.0
-      '@sinclair/typebox': 0.34.47
-      '@slack/bolt': 4.6.0(@types/express@5.0.6)
-      '@slack/web-api': 7.13.0
-      '@whiskeysockets/baileys': 7.0.0-rc.9(audio-decode@2.2.3)(sharp@0.34.5)
-      ajv: 8.17.1
-      body-parser: 2.2.2
-      chalk: 5.6.2
-      chokidar: 5.0.0
-      chromium-bidi: 13.0.1(devtools-protocol@0.0.1561482)
-      cli-highlight: 2.1.11
-      commander: 14.0.2
-      croner: 9.1.0
-      detect-libc: 2.1.2
-      discord-api-types: 0.38.37
-      dotenv: 17.2.3
-      express: 5.2.1
-      file-type: 21.3.0
-      grammy: 1.39.3
-      hono: 4.11.4
-      jiti: 2.6.1
-      json5: 2.2.3
-      jszip: 3.10.1
-      linkedom: 0.18.12
-      long: 5.3.2
-      markdown-it: 14.1.0
-      node-edge-tts: 1.2.9
-      osc-progress: 0.3.0
-      pdfjs-dist: 5.4.530
-      playwright-core: 1.58.0
-      proper-lockfile: 4.1.2
-      qrcode-terminal: 0.12.0
-      sharp: 0.34.5
-      sqlite-vec: 0.1.7-alpha.2
-      tar: 7.5.4
-      tslog: 4.10.2
-      undici: 7.19.0
-      ws: 8.19.0
-      yaml: 2.8.2
-      zod: 4.3.6
-    optionalDependencies:
-      '@napi-rs/canvas': 0.1.88
-      node-llama-cpp: 3.15.0(typescript@5.9.3)
-    transitivePeerDependencies:
-      - '@discordjs/opus'
-      - '@modelcontextprotocol/sdk'
-      - '@types/express'
-      - audio-decode
-      - aws-crt
-      - bufferutil
-      - canvas
-      - debug
-      - devtools-protocol
-      - encoding
-      - ffmpeg-static
-      - jimp
-      - link-preview-js
-      - node-opus
-      - opusscript
-      - supports-color
-      - typescript
-      - utf-8-validate
 
   cli-cursor@5.0.0:
     dependencies:
@@ -9588,6 +9553,8 @@ snapshots:
     dependencies:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
+
+  fflate@0.8.2: {}
 
   file-type@21.3.0:
     dependencies:
@@ -10360,6 +10327,8 @@ snapshots:
   merge-descriptors@2.0.0: {}
 
   merge2@1.4.1: {}
+
+  meshoptimizer@0.18.1: {}
 
   methods@1.1.2: {}
 
@@ -11489,6 +11458,8 @@ snapshots:
   thread-stream@3.1.0:
     dependencies:
       real-require: 0.2.0
+
+  three@0.170.0: {}
 
   tiny-inflate@1.0.3: {}
 
