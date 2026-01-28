@@ -34,6 +34,11 @@ import { AmbientAudio } from "./audio/AmbientAudio";
 import { VoiceCommandSystem, type VoiceCommandAction } from "./voice";
 import { hallsDataProvider, type HallsDataSnapshot } from "./data/HallsDataProvider";
 import {
+  AssistantPanel,
+  type AssistantSuggestion,
+  type SuggestionAction,
+} from "./ui/AssistantPanel";
+import {
   HALLS_COLORS,
   DEFAULT_HALLS_CONFIG,
   type HallsConfig,
@@ -78,6 +83,7 @@ export class HallsScene {
   private audio: AmbientAudio;
   private voice: VoiceCommandSystem;
   private holographicUI: HolographicUI;
+  private assistantPanel: AssistantPanel;
 
   // Object collections
   private projectStations: Map<string, ProjectStation> = new Map();
@@ -235,6 +241,8 @@ export class HallsScene {
       onCommand: (action) => this.handleVoiceCommand(action),
     });
     this.holographicUI = new HolographicUI(this.scene);
+    this.assistantPanel = new AssistantPanel(this.container);
+    this.setupAssistantPanel();
     this.vrWristMenu = new VRWristMenu({
       scene: this.scene,
       renderer: this.renderer,
@@ -649,6 +657,13 @@ export class HallsScene {
           this.voice.toggle();
         }
         break;
+      case "a":
+      case "A":
+        // Toggle AI assistant panel
+        if (!event.ctrlKey && !event.metaKey) {
+          this.toggleAssistantPanel();
+        }
+        break;
       case "1":
         // Quick-travel to Forge
         this.teleportToZone("forge");
@@ -716,6 +731,9 @@ export class HallsScene {
         break;
       case "toggle:grid":
         this.dragControls.toggleGrid();
+        break;
+      case "toggle:assistant":
+        this.toggleAssistantPanel();
         break;
 
       // Selection commands
@@ -819,6 +837,257 @@ export class HallsScene {
       this.holographicUI.showProjectDetails(station.getProject());
     } else {
       this.holographicUI.hide();
+    }
+
+    // Update assistant panel context
+    this.updateAssistantContext();
+  }
+
+  /**
+   * Setup the AI assistant panel and its event handlers.
+   */
+  private setupAssistantPanel() {
+    // Handle suggestion actions
+    this.assistantPanel.onAction((suggestion, action) => {
+      this.emitEvent({
+        type: "assistant:action",
+        payload: { suggestion, action },
+        timestamp: Date.now(),
+      });
+
+      // Handle built-in action types
+      if (action.type === "apply") {
+        this.handleSuggestionApply(suggestion);
+      }
+    });
+  }
+
+  /**
+   * Toggle the AI assistant panel.
+   */
+  private toggleAssistantPanel() {
+    const isVisible = this.assistantPanel.toggle();
+    this.emitEvent({
+      type: "ui:assistant",
+      payload: { visible: isVisible },
+      timestamp: Date.now(),
+    });
+
+    // Generate suggestions based on current context when showing
+    if (isVisible) {
+      this.generateContextualSuggestions();
+    }
+  }
+
+  /**
+   * Generate contextual suggestions based on current selection/zone.
+   */
+  private generateContextualSuggestions() {
+    const snapshot = hallsDataProvider.getSnapshot();
+    if (!snapshot) return;
+
+    const suggestions: AssistantSuggestion[] = [];
+
+    // Project-specific suggestions
+    if (this.selectedStation) {
+      const project = this.selectedStation.getProject();
+      this.assistantPanel.setContext({ project });
+
+      // Low energy suggestion
+      if (project.energy < 4) {
+        suggestions.push({
+          id: `energy-low-${project.id}`,
+          type: "insight",
+          title: "Low Energy Detected",
+          description: `${project.name} has low energy (${project.energy}/10). Consider reviewing project scope or taking a break to recharge.`,
+          context: "project",
+          priority: "high",
+          actions: [
+            { id: "review", label: "Review Scope", icon: "\u{1F4DD}", type: "apply" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { projectId: project.id, confidence: 0.85 },
+        });
+      }
+
+      // Paused project suggestion
+      if (project.status === "paused") {
+        suggestions.push({
+          id: `paused-${project.id}`,
+          type: "action",
+          title: "Project is Paused",
+          description: `${project.name} is currently paused. Consider reactivating it or moving to archive.`,
+          context: "project",
+          priority: "medium",
+          actions: [
+            { id: "activate", label: "Activate", icon: "\u25B6", type: "apply" },
+            { id: "archive", label: "Archive", icon: "\u{1F4E6}", type: "apply" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { projectId: project.id, confidence: 0.9 },
+        });
+      }
+
+      // Missing tech stack suggestion
+      if (!project.metadata.techStack?.length) {
+        suggestions.push({
+          id: `techstack-${project.id}`,
+          type: "optimization",
+          title: "Add Tech Stack",
+          description: "Adding a tech stack helps with project organization and quick reference.",
+          context: "project",
+          priority: "low",
+          actions: [
+            { id: "edit", label: "Edit Project", icon: "\u270F\uFE0F", type: "apply" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { projectId: project.id, confidence: 0.7 },
+        });
+      }
+
+      // Workflow opportunity
+      if (project.status === "active" && project.linkedAgents.length === 0) {
+        suggestions.push({
+          id: `workflow-${project.id}`,
+          type: "workflow",
+          title: "Automate with Workflow",
+          description: "Active projects can benefit from automated workflows. Link an agent or create an n8n workflow.",
+          context: "project",
+          priority: "medium",
+          actions: [
+            { id: "link-agent", label: "Link Agent", icon: "\u{1F916}", type: "apply" },
+            { id: "learn-more", label: "Learn More", icon: "\u{1F4A1}", type: "learn-more" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { projectId: project.id, confidence: 0.75 },
+        });
+      }
+    } else {
+      // General suggestions when no project selected
+      this.assistantPanel.setContext({});
+
+      // Active projects overview
+      const activeProjects = snapshot.projects.filter((p) => p.status === "active");
+      if (activeProjects.length > 0) {
+        const avgEnergy = activeProjects.reduce((sum, p) => sum + p.energy, 0) / activeProjects.length;
+        if (avgEnergy < 5) {
+          suggestions.push({
+            id: "overall-energy-low",
+            type: "insight",
+            title: "Overall Energy is Low",
+            description: `Your active projects average ${avgEnergy.toFixed(1)}/10 energy. Consider focusing on fewer projects or taking a restorative break.`,
+            context: "general",
+            priority: "high",
+            actions: [
+              { id: "view-projects", label: "View Projects", icon: "\u{1F4CA}", type: "apply" },
+              { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+            ],
+            metadata: { confidence: 0.8 },
+          });
+        }
+      }
+
+      // Hunting projects reminder
+      const huntingProjects = snapshot.projects.filter((p) => p.status === "hunting");
+      if (huntingProjects.length > 3) {
+        suggestions.push({
+          id: "too-many-hunting",
+          type: "optimization",
+          title: "Many Ideas in Incubator",
+          description: `You have ${huntingProjects.length} projects in hunting status. Consider prioritizing or archiving some.`,
+          context: "general",
+          priority: "medium",
+          actions: [
+            { id: "visit-incubator", label: "Visit Incubator", icon: "\u{1F9EA}", type: "apply" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { confidence: 0.85 },
+        });
+      }
+
+      // Workflow status
+      const errorWorkflows = snapshot.workflows.filter((w) => w.status === "error");
+      if (errorWorkflows.length > 0) {
+        suggestions.push({
+          id: "workflow-errors",
+          type: "action",
+          title: "Workflow Errors Detected",
+          description: `${errorWorkflows.length} workflow(s) have errors that need attention.`,
+          context: "general",
+          priority: "high",
+          actions: [
+            { id: "view-workflows", label: "View Workflows", icon: "\u2699\uFE0F", type: "apply" },
+            { id: "dismiss", label: "Dismiss", icon: "\u2715", type: "dismiss" },
+          ],
+          metadata: { confidence: 0.95 },
+        });
+      }
+    }
+
+    this.assistantPanel.setSuggestions(suggestions);
+  }
+
+  /**
+   * Handle applying a suggestion action.
+   */
+  private handleSuggestionApply(suggestion: AssistantSuggestion) {
+    switch (suggestion.id.split("-")[0]) {
+      case "energy":
+      case "paused":
+      case "techstack":
+        // Navigate to edit the project
+        if (suggestion.metadata?.projectId) {
+          this.emitEvent({
+            type: "project:action",
+            payload: {
+              action: "edit",
+              project: this.selectedStation?.getProject(),
+            },
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      case "workflow":
+        // Emit workflow linking action
+        if (suggestion.metadata?.projectId) {
+          this.emitEvent({
+            type: "project:action",
+            payload: {
+              action: "link-agent",
+              project: this.selectedStation?.getProject(),
+            },
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      case "overall":
+        // Navigate to forge for project overview
+        this.teleportToZone("forge");
+        break;
+      case "too":
+        // Navigate to incubator
+        this.teleportToZone("incubator");
+        break;
+      case "view":
+        // View projects or workflows
+        this.teleportToZone("command");
+        break;
+    }
+  }
+
+  /**
+   * Update assistant panel context when selection changes.
+   */
+  private updateAssistantContext() {
+    if (this.selectedStation) {
+      this.assistantPanel.setContext({ project: this.selectedStation.getProject() });
+    } else {
+      this.assistantPanel.setContext({});
+    }
+
+    // Regenerate suggestions if panel is visible
+    if (this.assistantPanel.isVisible()) {
+      this.generateContextualSuggestions();
     }
   }
 
@@ -1104,6 +1373,7 @@ export class HallsScene {
     this.archive.dispose();
     this.lab.dispose();
     this.holographicUI.dispose();
+    this.assistantPanel.dispose();
     this.audio.dispose();
     this.voice.dispose();
 

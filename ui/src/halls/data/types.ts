@@ -479,6 +479,8 @@ export type HallsEventType =
   | "controls:lock"
   | "controls:unlock"
   | "ui:settings"
+  | "ui:assistant"
+  | "assistant:action"
   | "voice:active-projects"
   | "voice:energy-report";
 

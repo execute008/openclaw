@@ -27,6 +27,7 @@ export type VoiceCommandAction =
   | "toggle:minimap"
   | "toggle:help"
   | "toggle:grid"
+  | "toggle:assistant"
   // Selection
   | "action:deselect"
   | "action:focus"

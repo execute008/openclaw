@@ -41,6 +41,7 @@ const KEYBOARD_SHORTCUTS: ShortcutItem[] = [
   { section: "General" },
   { key: "Escape", description: "Deselect / unlock camera" },
   { key: "H / ?", description: "Toggle this help" },
+  { key: "A", description: "Toggle AI assistant" },
   { key: "V", description: "Toggle voice commands" },
 ];
 

@@ -67,6 +67,20 @@ export const VOICE_COMMANDS: VoiceCommand[] = [
     description: "Toggle grid snap",
     category: "ui",
   },
+  {
+    action: "toggle:assistant",
+    phrases: [
+      "toggle assistant",
+      "show assistant",
+      "hide assistant",
+      "assistant",
+      "show suggestions",
+      "ai suggestions",
+      "suggestions",
+    ],
+    description: "Toggle AI assistant panel",
+    category: "ui",
+  },
 
   // Selection commands
   {
