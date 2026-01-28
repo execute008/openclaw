@@ -34,6 +34,13 @@ const DEFAULT_ACTIONS: PanelAction[] = [
   { id: "toggle", label: "Toggle", icon: "⏯️", color: HALLS_COLORS.primary },
 ];
 
+const NOTION_ACTION: PanelAction = {
+  id: "notion",
+  label: "Notion",
+  icon: "📝",
+  color: HALLS_COLORS.tertiary,
+};
+
 export class HolographicUI {
   private scene: THREE.Scene;
   private group: THREE.Group;
@@ -238,11 +245,29 @@ export class HolographicUI {
       contentY += 22;
     }
 
+    // Draw Notion info if available
+    if (project.notionUrl) {
+      ctx.fillStyle = "#3b82f6"; // Blue for Notion
+      ctx.font = "14px Space Grotesk, sans-serif";
+      if (project.notionUpdatedAt) {
+        const updatedStr = this.formatRelativeTime(project.notionUpdatedAt);
+        ctx.fillText(`Notion: Updated ${updatedStr}`, 20, contentY);
+      } else {
+        ctx.fillText("Notion: Linked", 20, contentY);
+      }
+      contentY += 22;
+    }
+
     // Draw energy bar
     this.drawEnergyBar(ctx, 20, Math.max(contentY + 10, 310), 200, 16, project.energy);
 
+    // Build actions list - add Notion action if URL available
+    const panelActions = project.notionUrl
+      ? [...this.actions, NOTION_ACTION]
+      : this.actions;
+
     // Draw action buttons
-    this.drawActionButtons(ctx, canvas.width, canvas.height);
+    this.drawActionButtons(ctx, canvas.width, canvas.height, panelActions);
 
     // Create texture and sprite
     const texture = new THREE.CanvasTexture(canvas);
@@ -265,18 +290,23 @@ export class HolographicUI {
   /**
    * Draw action buttons at the bottom of the panel.
    */
-  private drawActionButtons(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
+  private drawActionButtons(
+    ctx: CanvasRenderingContext2D,
+    canvasWidth: number,
+    canvasHeight: number,
+    actions: PanelAction[] = this.actions,
+  ) {
     const maxWidth = canvasWidth - 40;
     const defaultButtonWidth = 110;
     const buttonHeight = 40;
     const buttonSpacing = 8;
     const minTotalWidth =
-      this.actions.length * defaultButtonWidth + (this.actions.length - 1) * buttonSpacing;
+      actions.length * defaultButtonWidth + (actions.length - 1) * buttonSpacing;
     const buttonWidth =
       minTotalWidth > maxWidth
-        ? Math.floor((maxWidth - (this.actions.length - 1) * buttonSpacing) / this.actions.length)
+        ? Math.floor((maxWidth - (actions.length - 1) * buttonSpacing) / actions.length)
         : defaultButtonWidth;
-    const totalWidth = this.actions.length * buttonWidth + (this.actions.length - 1) * buttonSpacing;
+    const totalWidth = actions.length * buttonWidth + (actions.length - 1) * buttonSpacing;
     const startX = (canvasWidth - totalWidth) / 2;
     const buttonY = canvasHeight - buttonHeight - 20;
 
@@ -288,7 +318,7 @@ export class HolographicUI {
     ctx.lineTo(canvasWidth - 20, buttonY - 15);
     ctx.stroke();
 
-    this.actions.forEach((action, index) => {
+    actions.forEach((action, index) => {
       const x = startX + index * (buttonWidth + buttonSpacing);
 
       // Store hit area for click detection
@@ -459,6 +489,29 @@ export class HolographicUI {
     }
 
     return lines;
+  }
+
+  /**
+   * Format a date as relative time (e.g., "2 hours ago", "3 days ago").
+   */
+  private formatRelativeTime(date: Date): string {
+    const now = Date.now();
+    const diffMs = now - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffDay > 0) {
+      return diffDay === 1 ? "1 day ago" : `${diffDay} days ago`;
+    }
+    if (diffHour > 0) {
+      return diffHour === 1 ? "1 hour ago" : `${diffHour} hours ago`;
+    }
+    if (diffMin > 0) {
+      return diffMin === 1 ? "1 min ago" : `${diffMin} mins ago`;
+    }
+    return "just now";
   }
 
   /**

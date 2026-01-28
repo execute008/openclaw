@@ -47,6 +47,9 @@ export interface Project {
   metadata: ProjectMetadata;
   createdAt: Date;
   updatedAt: Date;
+  // Notion integration fields
+  notionUrl?: string;
+  notionUpdatedAt?: Date;
 }
 
 export type NotionProjectMetadata = {
@@ -207,6 +210,8 @@ export function mapNotionProjectToProject(params: {
     metadata,
     createdAt: notion.createdAt ? new Date(notion.createdAt) : new Date(),
     updatedAt: notion.updatedAt ? new Date(notion.updatedAt) : new Date(),
+    notionUrl: notion.url ?? undefined,
+    notionUpdatedAt: notion.updatedAt ? new Date(notion.updatedAt) : undefined,
   };
 }
 

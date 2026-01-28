@@ -9,7 +9,7 @@ import { html, nothing } from "lit";
 import { ref, createRef, type Ref } from "lit/directives/ref.js";
 import type { GatewayBrowserClient } from "../gateway";
 import type { N8nTriggerResult } from "../types";
-import type { Project } from "../../halls/data/types";
+import type { Project, ProjectMetadata } from "../../halls/data/types";
 
 export interface HallsViewProps {
   connected: boolean;
@@ -51,6 +51,12 @@ type N8nTriggerWorkflow = { id: string; name: string };
 
 const FEEDBACK_HIDE_MS = 4200;
 let feedbackTimer: number | null = null;
+const PROJECT_STATUS_ORDER: Array<Project["status"]> = [
+  "active",
+  "paused",
+  "completed",
+  "hunting",
+];
 
 function clearHallsFeedback() {
   const feedbackEl = document.querySelector(".halls-feedback") as HTMLDivElement | null;
@@ -76,6 +82,59 @@ function setHallsFeedback(message: string, kind: "success" | "error" | "info") {
     window.clearTimeout(feedbackTimer);
   }
   feedbackTimer = window.setTimeout(() => clearHallsFeedback(), FEEDBACK_HIDE_MS);
+}
+
+function getNextProjectStatus(current: Project["status"]): Project["status"] {
+  const index = PROJECT_STATUS_ORDER.indexOf(current);
+  const nextIndex = index === -1 ? 0 : (index + 1) % PROJECT_STATUS_ORDER.length;
+  return PROJECT_STATUS_ORDER[nextIndex];
+}
+
+function normalizeProjectSize(value: string): ProjectMetadata["size"] | undefined {
+  const lower = value.toLowerCase();
+  if (lower.includes("small")) return "small";
+  if (lower.includes("large")) return "large";
+  if (lower.includes("medium") || lower.includes("med")) return "medium";
+  return undefined;
+}
+
+function parseProjectMetadataInput(input: string | null): Partial<ProjectMetadata> | null {
+  if (input == null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  const metadata: Partial<ProjectMetadata> = {};
+  if (typeof record.client === "string" && record.client.trim()) metadata.client = record.client;
+  if (typeof record.deadline === "string" && record.deadline.trim()) {
+    const parsedDate = new Date(record.deadline);
+    if (!Number.isNaN(parsedDate.getTime())) metadata.deadline = parsedDate;
+  }
+  if (typeof record.revenue === "number" && Number.isFinite(record.revenue)) {
+    metadata.revenue = record.revenue;
+  }
+  if (typeof record.impact === "string" && record.impact.trim()) metadata.impact = record.impact;
+  if (typeof record.impact === "number" && Number.isFinite(record.impact)) metadata.impact = record.impact;
+  if (Array.isArray(record.techStack)) {
+    const techStack = record.techStack.filter((entry) => typeof entry === "string" && entry.trim());
+    if (techStack.length) metadata.techStack = techStack as string[];
+  }
+  if (typeof record.description === "string" && record.description.trim()) {
+    metadata.description = record.description;
+  }
+  if (typeof record.customColor === "string" && record.customColor.trim()) {
+    metadata.customColor = record.customColor;
+  }
+  if (typeof record.icon === "string" && record.icon.trim()) metadata.icon = record.icon;
+  if (typeof record.size === "string" && record.size.trim()) {
+    const size = normalizeProjectSize(record.size);
+    if (size) metadata.size = size;
+  }
+  return metadata;
 }
 
 async function triggerN8nWorkflows(
@@ -162,9 +221,48 @@ async function initializeScene(
             const payload = event.payload as {
               action?: string;
               workflows?: N8nTriggerWorkflow[];
+              project?: Project;
             };
             if (payload.action === "n8n-trigger") {
               void triggerN8nWorkflows(client, payload.workflows ?? []);
+            }
+            if (payload.action === "toggle" && payload.project) {
+              const nextStatus = getNextProjectStatus(payload.project.status);
+              setHallsFeedback(`Setting ${payload.project.name} to ${nextStatus}...`, "info");
+              hallsDataProvider
+                .updateProjectStatus(payload.project.id, nextStatus)
+                .then(() =>
+                  setHallsFeedback(`Updated ${payload.project?.name ?? "project"} status.`, "success"),
+                )
+                .catch((err) => {
+                  const message = err instanceof Error ? err.message : "Failed to update project status";
+                  setHallsFeedback(message, "error");
+                });
+            }
+            if (payload.action === "edit" && payload.project) {
+              const raw = window.prompt(
+                "Edit project metadata (JSON)",
+                JSON.stringify(payload.project.metadata ?? {}, null, 2),
+              );
+              const metadata = parseProjectMetadataInput(raw);
+              if (!metadata || Object.keys(metadata).length === 0) {
+                setHallsFeedback("No metadata changes applied.", "info");
+                break;
+              }
+              setHallsFeedback(`Saving ${payload.project.name} metadata...`, "info");
+              hallsDataProvider
+                .updateProjectMetadata(payload.project.id, metadata)
+                .then(() =>
+                  setHallsFeedback(`Updated ${payload.project?.name ?? "project"} metadata.`, "success"),
+                )
+                .catch((err) => {
+                  const message = err instanceof Error ? err.message : "Failed to update project metadata";
+                  setHallsFeedback(message, "error");
+                });
+            }
+            if (payload.action === "notion" && payload.project?.notionUrl) {
+              window.open(payload.project.notionUrl, "_blank", "noopener,noreferrer");
+              setHallsFeedback(`Opening ${payload.project.name} in Notion...`, "info");
             }
             break;
           }
