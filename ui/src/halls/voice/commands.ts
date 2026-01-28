@@ -82,6 +82,33 @@ export const VOICE_COMMANDS: VoiceCommand[] = [
     category: "selection",
   },
 
+  // Status query commands
+  {
+    action: "query:active-projects",
+    phrases: [
+      "show active projects",
+      "active projects",
+      "what projects are active",
+      "list active projects",
+      "show projects",
+    ],
+    description: "Show active projects summary",
+    category: "status",
+  },
+  {
+    action: "query:energy-report",
+    phrases: [
+      "energy report",
+      "show energy",
+      "energy status",
+      "how is my energy",
+      "show metrics",
+      "energy levels",
+    ],
+    description: "Show energy metrics report",
+    category: "status",
+  },
+
   // Control commands
   {
     action: "voice:stop",

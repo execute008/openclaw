@@ -732,10 +732,65 @@ export class HallsScene {
         }
         break;
 
+      // Status queries
+      case "query:active-projects":
+        this.showActiveProjectsSummary();
+        break;
+      case "query:energy-report":
+        this.showEnergyReport();
+        break;
+
       // Voice control - handled by VoiceCommandSystem itself
       case "voice:stop":
         break;
     }
+  }
+
+  /**
+   * Show a summary of active projects via event.
+   */
+  private showActiveProjectsSummary() {
+    const snapshot = hallsDataProvider.getSnapshot();
+    if (!snapshot) return;
+
+    const activeProjects = snapshot.projects.filter((p) => p.status === "active");
+
+    this.emitEvent({
+      type: "voice:active-projects",
+      payload: {
+        count: activeProjects.length,
+        projects: activeProjects.map((p) => ({
+          id: p.id,
+          name: p.name,
+          energy: p.energy,
+          zone: p.zone,
+        })),
+      },
+      timestamp: Date.now(),
+    });
+
+    // Navigate to forge (where active projects are) and announce
+    this.teleportToZone("forge");
+  }
+
+  /**
+   * Show energy report by navigating to command deck.
+   */
+  private showEnergyReport() {
+    const snapshot = hallsDataProvider.getSnapshot();
+    if (!snapshot) return;
+
+    this.emitEvent({
+      type: "voice:energy-report",
+      payload: {
+        energy: snapshot.energyMetrics,
+        business: snapshot.businessMetrics,
+      },
+      timestamp: Date.now(),
+    });
+
+    // Navigate to command deck where metrics panel is visible
+    this.teleportToZone("command");
   }
 
   /**

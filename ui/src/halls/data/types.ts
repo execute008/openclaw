@@ -478,7 +478,9 @@ export type HallsEventType =
   | "metrics:update"
   | "controls:lock"
   | "controls:unlock"
-  | "ui:settings";
+  | "ui:settings"
+  | "voice:active-projects"
+  | "voice:energy-report";
 
 export interface HallsEvent {
   type: HallsEventType;

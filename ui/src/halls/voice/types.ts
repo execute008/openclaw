@@ -30,6 +30,9 @@ export type VoiceCommandAction =
   // Selection
   | "action:deselect"
   | "action:focus"
+  // Status queries
+  | "query:active-projects"
+  | "query:energy-report"
   // Control
   | "voice:stop";
 
@@ -44,7 +47,7 @@ export interface VoiceCommand {
   /** Human-readable description */
   description: string;
   /** Category for grouping in help */
-  category: "navigation" | "ui" | "selection" | "control";
+  category: "navigation" | "ui" | "selection" | "status" | "control";
 }
 
 /**
