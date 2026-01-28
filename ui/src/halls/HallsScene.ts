@@ -13,6 +13,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { DesktopControls } from "./controls/DesktopControls";
 import { DragControls } from "./controls/DragControls";
 import { VRControls } from "./controls/VRControls";
+import { VRTeleport } from "./controls/VRTeleport";
 import { UndoRedoManager } from "./systems/UndoRedoManager";
 import { Minimap } from "./ui/Minimap";
 import { HelpOverlay } from "./ui/HelpOverlay";
@@ -55,6 +56,7 @@ export class HallsScene {
   private controls: DesktopControls;
   private dragControls: DragControls;
   private vrControls: VRControls;
+  private vrTeleport: VRTeleport;
   private undoRedoManager: UndoRedoManager;
   private minimap: Minimap;
   private helpOverlay: HelpOverlay;
@@ -83,6 +85,7 @@ export class HallsScene {
   private mouse: THREE.Vector2;
   private hoveredObject: THREE.Object3D | null = null;
   private selectedStation: ProjectStation | null = null;
+  private teleportSurfaces: THREE.Object3D[] = [];
 
   // Performance
   private lastFrameTime = 0;
@@ -149,6 +152,7 @@ export class HallsScene {
       onSessionStart: () => {
         this.controls.unlock();
         this.startXrLoop();
+        this.vrTeleport.setEnabled(true);
         this.emitEvent({
           type: "controls:lock",
           payload: { mode: "vr" },
@@ -157,6 +161,7 @@ export class HallsScene {
       },
       onSessionEnd: () => {
         this.stopXrLoop();
+        this.vrTeleport.setEnabled(false);
         this.emitEvent({
           type: "controls:unlock",
           payload: { mode: "vr" },
@@ -176,6 +181,13 @@ export class HallsScene {
     this.circuitFloor = new CircuitFloor(this.scene);
     this.audio = new AmbientAudio(this.config);
     this.holographicUI = new HolographicUI(this.scene);
+    this.teleportSurfaces = this.collectTeleportSurfaces();
+    this.vrTeleport = new VRTeleport({
+      scene: this.scene,
+      camera: this.camera,
+      renderer: this.renderer,
+      teleportSurfaces: this.teleportSurfaces,
+    });
 
     // Setup minimap click-to-teleport
     this.minimap.onClick((worldPos) => {
@@ -250,6 +262,16 @@ export class HallsScene {
       point.position.set(p.x, p.y, p.z);
       this.scene.add(point);
     });
+  }
+
+  private collectTeleportSurfaces(): THREE.Object3D[] {
+    const surfaces: THREE.Object3D[] = [];
+    this.scene.traverse((object) => {
+      if (object.userData.teleportSurface) {
+        surfaces.push(object);
+      }
+    });
+    return surfaces;
   }
 
   /**
@@ -678,6 +700,7 @@ export class HallsScene {
     // Update controls
     this.controls.update(delta);
     this.dragControls.update(delta);
+    this.vrTeleport.update(delta);
 
     // Update minimap with camera position
     const cameraDir = new THREE.Vector3();
@@ -775,6 +798,7 @@ export class HallsScene {
     this.controls.dispose();
     this.dragControls.dispose();
     this.vrControls.dispose();
+    this.vrTeleport.dispose();
     this.undoRedoManager.dispose();
     this.minimap.dispose();
     this.helpOverlay.dispose();

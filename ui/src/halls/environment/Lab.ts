@@ -57,6 +57,7 @@ export class LabEnvironment {
     const base = new THREE.Mesh(new THREE.BoxGeometry(18, 0.4, 16), baseMaterial);
     base.position.set(22, 0.2, 0);
     base.receiveShadow = true;
+    base.userData.teleportSurface = true;
     this.group.add(base);
 
     const inlayMaterial = new THREE.MeshBasicMaterial({
