@@ -28,6 +28,7 @@ export interface VRTeleportOptions {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   teleportSurfaces: THREE.Object3D[];
+  onSelectStart?: (controller: THREE.Group) => boolean;
 }
 
 export class VRTeleport {
@@ -38,6 +39,7 @@ export class VRTeleport {
   private controllers: TeleportController[] = [];
   private enabled = false;
   private raycaster = new THREE.Raycaster();
+  private onSelectStart?: (controller: THREE.Group) => boolean;
 
   private fadeMesh: THREE.Mesh;
   private fadeMaterial: THREE.MeshBasicMaterial;
@@ -50,6 +52,7 @@ export class VRTeleport {
     this.camera = options.camera;
     this.renderer = options.renderer;
     this.teleportSurfaces = options.teleportSurfaces;
+    this.onSelectStart = options.onSelectStart;
 
     this.fadeMaterial = new THREE.MeshBasicMaterial({
       color: 0x000000,
@@ -96,6 +99,9 @@ export class VRTeleport {
   private createController(index: number) {
     const controller = this.renderer.xr.getController(index);
     controller.addEventListener("selectstart", () => {
+      if (this.onSelectStart?.(controller)) {
+        return;
+      }
       const data = this.controllers.find((c) => c.controller === controller);
       if (!data || !data.isValid || !data.targetPoint) return;
       this.beginTeleport(data.targetPoint);

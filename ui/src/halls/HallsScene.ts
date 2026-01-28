@@ -12,6 +12,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 
 import { DesktopControls } from "./controls/DesktopControls";
 import { DragControls } from "./controls/DragControls";
+import { VRControllerInput } from "./controls/VRControllerInput";
 import { VRControls } from "./controls/VRControls";
 import { VRTeleport } from "./controls/VRTeleport";
 import { UndoRedoManager } from "./systems/UndoRedoManager";
@@ -55,6 +56,7 @@ export class HallsScene {
   // Subsystems
   private controls: DesktopControls;
   private dragControls: DragControls;
+  private vrInput: VRControllerInput;
   private vrControls: VRControls;
   private vrTeleport: VRTeleport;
   private undoRedoManager: UndoRedoManager;
@@ -146,6 +148,30 @@ export class HallsScene {
     this.controls = new DesktopControls(this.camera, this.renderer.domElement);
     this.dragControls = new DragControls(this.camera, this.renderer.domElement);
     this.dragControls.setScene(this.scene);
+    this.vrInput = new VRControllerInput({
+      camera: this.camera,
+      renderer: this.renderer,
+      getInteractables: () => Array.from(this.projectStations.values()).map((s) => s.getMesh()),
+      resolveStation: (mesh) => this.findStationByMesh(mesh),
+      onSelectStation: (station) => this.toggleStationSelection(station),
+      onGrabEnd: (station, startPosition, endPosition) => {
+        this.undoRedoManager.push({
+          type: "move",
+          projectId: station.getProject().id,
+          before: startPosition,
+          after: endPosition,
+        });
+
+        hallsDataProvider.updateProjectPosition(station.getProject().id, endPosition)
+          .catch(console.error);
+
+        this.emitEvent({
+          type: "project:move",
+          payload: { project: station.getProject(), position: endPosition },
+          timestamp: Date.now(),
+        });
+      },
+    });
     this.vrControls = new VRControls({
       container: this.container,
       renderer: this.renderer,
@@ -153,6 +179,12 @@ export class HallsScene {
         this.controls.unlock();
         this.startXrLoop();
         this.vrTeleport.setEnabled(true);
+        this.vrInput.setEnabled(true);
+        if (this.hoveredObject) {
+          const prevStation = this.findStationByMesh(this.hoveredObject);
+          prevStation?.setHovered(false);
+          this.hoveredObject = null;
+        }
         this.emitEvent({
           type: "controls:lock",
           payload: { mode: "vr" },
@@ -162,6 +194,7 @@ export class HallsScene {
       onSessionEnd: () => {
         this.stopXrLoop();
         this.vrTeleport.setEnabled(false);
+        this.vrInput.setEnabled(false);
         this.emitEvent({
           type: "controls:unlock",
           payload: { mode: "vr" },
@@ -187,6 +220,7 @@ export class HallsScene {
       camera: this.camera,
       renderer: this.renderer,
       teleportSurfaces: this.teleportSurfaces,
+      onSelectStart: (controller) => this.vrInput.handleSelectStart(controller),
     });
 
     // Setup minimap click-to-teleport
@@ -379,6 +413,7 @@ export class HallsScene {
    * Handle mouse movement for raycasting and drag updates.
    */
   private handleMouseMove(event: MouseEvent) {
+    if (this.isXrActive) return;
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -420,27 +455,14 @@ export class HallsScene {
    * Note: Click only fires if mouseup happens without significant movement.
    */
   private handleClick() {
+    if (this.isXrActive) return;
     // Don't process click if we just finished dragging
     if (this.dragControls.isDraggingActive()) return;
 
     if (this.hoveredObject) {
       const station = this.findStationByMesh(this.hoveredObject);
       if (station) {
-        // Deselect previous
-        if (this.selectedStation && this.selectedStation !== station) {
-          this.selectedStation.setSelected(false);
-        }
-        // Toggle selection
-        const isSelected = !station.isSelected();
-        station.setSelected(isSelected);
-        this.selectedStation = isSelected ? station : null;
-
-        if (isSelected) {
-          this.emitEvent({ type: "project:select", payload: station.getProject(), timestamp: Date.now() });
-          this.holographicUI.showProjectDetails(station.getProject());
-        } else {
-          this.holographicUI.hide();
-        }
+        this.toggleStationSelection(station);
       }
     }
   }
@@ -449,6 +471,7 @@ export class HallsScene {
    * Handle mouse down for drag start.
    */
   private handleMouseDown(event: MouseEvent) {
+    if (this.isXrActive) return;
     // Only start drag on left mouse button
     if (event.button !== 0) return;
 
@@ -475,6 +498,7 @@ export class HallsScene {
    * Handle mouse up for drag end.
    */
   private handleMouseUp(_event: MouseEvent) {
+    if (this.isXrActive) return;
     if (this.dragControls.isDraggingActive()) {
       this.dragControls.endDrag();
     }
@@ -613,6 +637,23 @@ export class HallsScene {
     return undefined;
   }
 
+  private toggleStationSelection(station: ProjectStation) {
+    if (this.selectedStation && this.selectedStation !== station) {
+      this.selectedStation.setSelected(false);
+    }
+
+    const isSelected = !station.isSelected();
+    station.setSelected(isSelected);
+    this.selectedStation = isSelected ? station : null;
+
+    if (isSelected) {
+      this.emitEvent({ type: "project:select", payload: station.getProject(), timestamp: Date.now() });
+      this.holographicUI.showProjectDetails(station.getProject());
+    } else {
+      this.holographicUI.hide();
+    }
+  }
+
   /**
    * Emit event to all handlers.
    */
@@ -700,6 +741,7 @@ export class HallsScene {
     // Update controls
     this.controls.update(delta);
     this.dragControls.update(delta);
+    this.vrInput.update(delta);
     this.vrTeleport.update(delta);
 
     // Update minimap with camera position
@@ -797,6 +839,7 @@ export class HallsScene {
     this.stop();
     this.controls.dispose();
     this.dragControls.dispose();
+    this.vrInput.dispose();
     this.vrControls.dispose();
     this.vrTeleport.dispose();
     this.undoRedoManager.dispose();
