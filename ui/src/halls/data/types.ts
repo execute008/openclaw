@@ -55,6 +55,7 @@ export interface Project {
 
 export type WorkflowType = "lead-gen" | "outreach" | "monitoring" | "automation" | "agent-task";
 export type WorkflowStatus = "running" | "idle" | "error" | "completed";
+export type WorkflowSource = "cron" | "n8n";
 
 export interface WorkflowMetrics {
   runsToday: number;
@@ -74,6 +75,84 @@ export interface AgentWorkflow {
   metrics: WorkflowMetrics;
   linkedProjectId?: string;
   agentId?: string;
+  source?: WorkflowSource;
+}
+
+export type N8nWorkflowTag = {
+  id?: string | null;
+  name?: string | null;
+};
+
+export type N8nWorkflow = {
+  id: string;
+  name?: string | null;
+  active?: boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  tags?: Array<N8nWorkflowTag | string> | null;
+  lastExecution?: {
+    status?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+  } | null;
+};
+
+const WORKFLOW_TYPE_RULES: Array<{ type: WorkflowType; keywords: string[] }> = [
+  { type: "lead-gen", keywords: ["lead", "prospect"] },
+  { type: "outreach", keywords: ["outreach", "email", "dm"] },
+  { type: "monitoring", keywords: ["monitor", "check", "alert"] },
+];
+
+function resolveWorkflowTypeFromText(text: string): WorkflowType {
+  const lower = text.toLowerCase();
+  for (const rule of WORKFLOW_TYPE_RULES) {
+    if (rule.keywords.some((keyword) => lower.includes(keyword))) {
+      return rule.type;
+    }
+  }
+  return "automation";
+}
+
+function resolveN8nWorkflowStatus(workflow: N8nWorkflow): WorkflowStatus {
+  const raw = workflow.lastExecution?.status?.toLowerCase() ?? "";
+  if (raw.includes("error") || raw.includes("fail")) return "error";
+  if (raw.includes("success") || raw.includes("ok")) return "completed";
+  if (workflow.active) return "running";
+  return "idle";
+}
+
+function parseTimestamp(value?: string | null): Date {
+  if (!value) return new Date(0);
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+}
+
+export function mapN8nWorkflowToAgentWorkflow(workflow: N8nWorkflow): AgentWorkflow {
+  const name = workflow.name?.trim() || `Workflow ${workflow.id}`;
+  const tagText = (workflow.tags ?? [])
+    .map((tag) => (typeof tag === "string" ? tag : tag?.name ?? ""))
+    .filter(Boolean)
+    .join(" ");
+  const type = resolveWorkflowTypeFromText(`${name} ${tagText}`.trim());
+  const status = resolveN8nWorkflowStatus(workflow);
+  const lastRun = parseTimestamp(
+    workflow.lastExecution?.finishedAt ??
+      workflow.lastExecution?.startedAt ??
+      workflow.updatedAt ??
+      workflow.createdAt,
+  );
+  return {
+    id: workflow.id,
+    name,
+    type,
+    status,
+    lastRun,
+    metrics: {
+      runsToday: 0,
+      successRate: status === "completed" ? 1 : status === "error" ? 0 : 0.5,
+    },
+    source: "n8n",
+  };
 }
 
 // ============================================================================

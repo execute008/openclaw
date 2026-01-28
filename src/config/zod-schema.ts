@@ -245,6 +245,23 @@ export const MoltbotSchema = z
       })
       .strict()
       .optional(),
+    integrations: z
+      .object({
+        n8n: z
+          .object({
+            enabled: z.boolean().optional(),
+            baseUrl: z.string().optional(),
+            apiKey: z.string().optional(),
+            apiPath: z.string().optional(),
+            workflowIds: z.array(z.string()).optional(),
+            includeInactive: z.boolean().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     web: z
       .object({
         enabled: z.boolean().optional(),

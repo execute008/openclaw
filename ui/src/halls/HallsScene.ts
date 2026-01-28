@@ -791,7 +791,11 @@ export class HallsScene {
     }
 
     // Update holographic UI if showing metrics
-    this.holographicUI.updateMetrics(snapshot.energyMetrics, snapshot.businessMetrics);
+    this.holographicUI.updateMetrics(
+      snapshot.energyMetrics,
+      snapshot.businessMetrics,
+      snapshot.workflows,
+    );
 
     // Update minimap with project data
     this.minimap.setProjects(snapshot.projects);

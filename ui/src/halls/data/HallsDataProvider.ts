@@ -12,6 +12,7 @@ import type {
   CronJob,
   CronStatus,
   ChannelsStatusSnapshot,
+  N8nWorkflowsResult,
 } from "../../ui/types";
 import type {
   Project,
@@ -19,6 +20,7 @@ import type {
   ProjectMetadata,
   ProjectStatus,
   AgentWorkflow,
+  N8nWorkflow,
   EnergyMetrics,
   BusinessMetrics,
   MappedSession,
@@ -27,6 +29,7 @@ import type {
   WorkflowType,
   WorkflowStatus,
 } from "./types";
+import { mapN8nWorkflowToAgentWorkflow } from "./types";
 
 export interface HallsDataSnapshot {
   agents: MappedAgent[];
@@ -111,14 +114,22 @@ export class HallsDataProvider {
       throw new Error("HallsDataProvider not connected to gateway");
     }
 
-    const [agentsResult, sessionsResult, cronResult, channelsResult, hallsConfig] =
-      await Promise.all([
+    const [agentsResult, sessionsResult, cronResult, channelsResult, hallsConfig, n8nResult] =
+      (await Promise.all([
         this.fetchAgents(),
         this.fetchSessions(),
         this.fetchCronJobs(),
         this.fetchChannels(),
         this.fetchHallsConfig(),
-      ]);
+        this.fetchN8nWorkflows(),
+      ])) as [
+        AgentsListResult,
+        SessionsListResult,
+        { jobs: CronJob[]; status: CronStatus | null },
+        ChannelsStatusSnapshot | null,
+        { projects: Record<string, SavedProjectConfig> } | null,
+        N8nWorkflowsResult | null,
+      ];
 
     // Map agents
     const agents: MappedAgent[] = agentsResult.agents.map((agent) => ({
@@ -141,8 +152,11 @@ export class HallsDataProvider {
       isActive: this.isSessionActive(session.updatedAt),
     }));
 
-    // Map cron jobs to workflows
-    const workflows = this.mapCronJobsToWorkflows(cronResult.jobs);
+    // Map cron jobs + n8n workflows to workflows
+    const workflows = [
+      ...this.mapCronJobsToWorkflows(cronResult.jobs),
+      ...this.mapN8nWorkflowsToWorkflows(n8nResult?.workflows ?? []),
+    ];
 
     // Map cron jobs for direct visualization
     const cronJobs: MappedCronJob[] = cronResult.jobs.map((job) => ({
@@ -240,6 +254,18 @@ export class HallsDataProvider {
     if (!this.client) throw new Error("Not connected");
     try {
       return await this.client.request<ChannelsStatusSnapshot>("channels.status", {});
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch n8n workflows from gateway.
+   */
+  private async fetchN8nWorkflows(): Promise<N8nWorkflowsResult | null> {
+    if (!this.client) throw new Error("Not connected");
+    try {
+      return await this.client.request<N8nWorkflowsResult>("n8n.workflows", {});
     } catch {
       return null;
     }
@@ -362,8 +388,13 @@ export class HallsDataProvider {
           lastDurationMs: job.state?.lastDurationMs,
         },
         agentId: job.agentId,
+        source: "cron",
       };
     });
+  }
+
+  private mapN8nWorkflowsToWorkflows(workflows: N8nWorkflow[]): AgentWorkflow[] {
+    return workflows.map((workflow) => mapN8nWorkflowToAgentWorkflow(workflow));
   }
 
   /**

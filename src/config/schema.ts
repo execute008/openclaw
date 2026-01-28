@@ -66,6 +66,7 @@ const GROUP_LABELS: Record<string, string> = {
   browser: "Browser",
   talk: "Talk",
   channels: "Messaging Channels",
+  integrations: "Integrations",
   skills: "Skills",
   plugins: "Plugins",
   discovery: "Discovery",
@@ -93,6 +94,7 @@ const GROUP_ORDER: Record<string, number> = {
   browser: 130,
   talk: 140,
   channels: 150,
+  integrations: 160,
   skills: 200,
   plugins: 205,
   discovery: 210,
@@ -328,6 +330,14 @@ const FIELD_LABELS: Record<string, string> = {
   "channels.discord.intents.presence": "Discord Presence Intent",
   "channels.discord.intents.guildMembers": "Discord Guild Members Intent",
   "channels.slack.dm.policy": "Slack DM Policy",
+  "integrations.n8n": "n8n",
+  "integrations.n8n.enabled": "Enable n8n",
+  "integrations.n8n.baseUrl": "n8n Base URL",
+  "integrations.n8n.apiKey": "n8n API Key",
+  "integrations.n8n.apiPath": "n8n API Base Path",
+  "integrations.n8n.workflowIds": "Workflow IDs",
+  "integrations.n8n.includeInactive": "Include Inactive Workflows",
+  "integrations.n8n.timeoutSeconds": "n8n Timeout (sec)",
   "channels.slack.allowBots": "Slack Allow Bot Messages",
   "channels.discord.token": "Discord Bot Token",
   "channels.slack.botToken": "Slack Bot Token",
@@ -673,6 +683,13 @@ const FIELD_HELP: Record<string, string> = {
     "Enable the Guild Members privileged intent. Must also be enabled in the Discord Developer Portal. Default: false.",
   "channels.slack.dm.policy":
     'Direct message access control ("pairing" recommended). "open" requires channels.slack.dm.allowFrom=["*"].',
+  "integrations.n8n.enabled": "Enable n8n workflow sync (default: false).",
+  "integrations.n8n.baseUrl": "Base URL for your n8n instance (https://... without /api).",
+  "integrations.n8n.apiKey": "n8n API key (set in n8n user settings).",
+  "integrations.n8n.apiPath": 'API base path (default: "/api/v1").',
+  "integrations.n8n.workflowIds": "Optional allowlist of workflow IDs to show in Halls.",
+  "integrations.n8n.includeInactive": "When true, include inactive workflows in Halls.",
+  "integrations.n8n.timeoutSeconds": "Timeout in seconds for n8n API requests.",
 };
 
 const FIELD_PLACEHOLDERS: Record<string, string> = {
@@ -682,6 +699,8 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
   "gateway.controlUi.basePath": "/moltbot",
   "channels.mattermost.baseUrl": "https://chat.example.com",
   "agents.list[].identity.avatar": "avatars/clawd.png",
+  "integrations.n8n.baseUrl": "https://n8n.example.com",
+  "integrations.n8n.apiPath": "/api/v1",
 };
 
 const SENSITIVE_PATTERNS = [/token/i, /password/i, /secret/i, /api.?key/i];

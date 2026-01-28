@@ -461,6 +461,31 @@ export type CronRunLogEntry = {
   summary?: string;
 };
 
+export type N8nWorkflowTag = {
+  id?: string | null;
+  name?: string | null;
+};
+
+export type N8nWorkflow = {
+  id: string;
+  name?: string | null;
+  active?: boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  tags?: Array<N8nWorkflowTag | string> | null;
+  lastExecution?: {
+    status?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+  } | null;
+};
+
+export type N8nWorkflowsResult = {
+  connected: boolean;
+  workflows: N8nWorkflow[];
+  error?: string;
+};
+
 export type SkillsStatusConfigCheck = {
   path: string;
   value: unknown;
