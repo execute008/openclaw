@@ -83,7 +83,7 @@ import type {
   LogsTailParamsSchema,
   LogsTailResultSchema,
 } from "./logs-chat.js";
-import type { N8nWorkflowsParamsSchema } from "./n8n.js";
+import type { N8nTriggerParamsSchema, N8nWorkflowsParamsSchema } from "./n8n.js";
 import type {
   NodeDescribeParamsSchema,
   NodeEventParamsSchema,
@@ -195,6 +195,7 @@ export type CronRunLogEntry = Static<typeof CronRunLogEntrySchema>;
 export type LogsTailParams = Static<typeof LogsTailParamsSchema>;
 export type LogsTailResult = Static<typeof LogsTailResultSchema>;
 export type N8nWorkflowsParams = Static<typeof N8nWorkflowsParamsSchema>;
+export type N8nTriggerParams = Static<typeof N8nTriggerParamsSchema>;
 export type ExecApprovalsGetParams = Static<typeof ExecApprovalsGetParamsSchema>;
 export type ExecApprovalsSetParams = Static<typeof ExecApprovalsSetParamsSchema>;
 export type ExecApprovalsNodeGetParams = Static<typeof ExecApprovalsNodeGetParamsSchema>;

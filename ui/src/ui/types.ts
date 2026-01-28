@@ -486,6 +486,12 @@ export type N8nWorkflowsResult = {
   error?: string;
 };
 
+export type N8nTriggerResult = {
+  workflowId: string;
+  triggered: boolean;
+  executionId?: string;
+};
+
 export type SkillsStatusConfigCheck = {
   path: string;
   value: unknown;

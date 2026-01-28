@@ -98,6 +98,8 @@ import {
   type LogsTailResult,
   type N8nWorkflowsParams,
   N8nWorkflowsParamsSchema,
+  type N8nTriggerParams,
+  N8nTriggerParamsSchema,
   LogsTailResultSchema,
   type ModelsListParams,
   ModelsListParamsSchema,
@@ -313,6 +315,7 @@ export const validateExecApprovalsNodeSetParams = ajv.compile<ExecApprovalsNodeS
 );
 export const validateLogsTailParams = ajv.compile<LogsTailParams>(LogsTailParamsSchema);
 export const validateN8nWorkflowsParams = ajv.compile<N8nWorkflowsParams>(N8nWorkflowsParamsSchema);
+export const validateN8nTriggerParams = ajv.compile<N8nTriggerParams>(N8nTriggerParamsSchema);
 export const validateChatHistoryParams = ajv.compile(ChatHistoryParamsSchema);
 export const validateChatSendParams = ajv.compile(ChatSendParamsSchema);
 export const validateChatAbortParams = ajv.compile<ChatAbortParams>(ChatAbortParamsSchema);

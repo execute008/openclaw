@@ -8,6 +8,7 @@
 import { html, nothing } from "lit";
 import { ref, createRef, type Ref } from "lit/directives/ref.js";
 import type { GatewayBrowserClient } from "../gateway";
+import type { N8nTriggerResult } from "../types";
 import type { Project } from "../../halls/data/types";
 
 export interface HallsViewProps {
@@ -28,6 +29,8 @@ interface HallsState {
   fps: number;
   showHelp: boolean;
   error: string | null;
+  triggerBusy: boolean;
+  feedback: { message: string; kind: "success" | "error" | "info" } | null;
 }
 
 const state: HallsState = {
@@ -40,7 +43,87 @@ const state: HallsState = {
   fps: 60,
   showHelp: true,
   error: null,
+  triggerBusy: false,
+  feedback: null,
 };
+
+type N8nTriggerWorkflow = { id: string; name: string };
+
+const FEEDBACK_HIDE_MS = 4200;
+let feedbackTimer: number | null = null;
+
+function clearHallsFeedback() {
+  const feedbackEl = document.querySelector(".halls-feedback") as HTMLDivElement | null;
+  if (feedbackEl) {
+    feedbackEl.dataset.visible = "false";
+  }
+  state.feedback = null;
+  if (feedbackTimer !== null) {
+    window.clearTimeout(feedbackTimer);
+    feedbackTimer = null;
+  }
+}
+
+function setHallsFeedback(message: string, kind: "success" | "error" | "info") {
+  state.feedback = { message, kind };
+  const feedbackEl = document.querySelector(".halls-feedback") as HTMLDivElement | null;
+  if (feedbackEl) {
+    feedbackEl.textContent = message;
+    feedbackEl.dataset.kind = kind;
+    feedbackEl.dataset.visible = "true";
+  }
+  if (feedbackTimer !== null) {
+    window.clearTimeout(feedbackTimer);
+  }
+  feedbackTimer = window.setTimeout(() => clearHallsFeedback(), FEEDBACK_HIDE_MS);
+}
+
+async function triggerN8nWorkflows(
+  client: GatewayBrowserClient | null,
+  workflows: N8nTriggerWorkflow[],
+) {
+  if (!client) {
+    setHallsFeedback("Gateway not connected for n8n triggers.", "error");
+    return;
+  }
+  if (workflows.length === 0) {
+    setHallsFeedback("No n8n workflows available to trigger.", "error");
+    return;
+  }
+  if (state.triggerBusy) {
+    setHallsFeedback("n8n trigger already in progress.", "info");
+    return;
+  }
+
+  state.triggerBusy = true;
+  const plural = workflows.length === 1 ? "workflow" : "workflows";
+  setHallsFeedback(`Triggering ${workflows.length} n8n ${plural}...`, "info");
+
+  const results = await Promise.allSettled(
+    workflows.map((workflow) =>
+      client.request<N8nTriggerResult>("n8n.trigger", { id: workflow.id }),
+    ),
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    const firstFailure = failures[0] as PromiseRejectedResult;
+    const errorMessage =
+      firstFailure.reason instanceof Error
+        ? firstFailure.reason.message
+        : "Failed to trigger n8n workflows";
+    setHallsFeedback(
+      `Triggered ${workflows.length - failures.length}/${workflows.length} n8n ${plural}. ${errorMessage}`,
+      "error",
+    );
+  } else if (workflows.length === 1) {
+    setHallsFeedback(`Triggered n8n workflow: ${workflows[0].name}`, "success");
+  } else {
+    setHallsFeedback(`Triggered ${workflows.length} n8n ${plural}.`, "success");
+  }
+
+  state.triggerBusy = false;
+}
 
 /**
  * Initialize the halls scene when entering the view.
@@ -75,6 +158,16 @@ async function initializeScene(
           case "project:select":
             state.selectedProject = event.payload as Project | null;
             break;
+          case "project:action": {
+            const payload = event.payload as {
+              action?: string;
+              workflows?: N8nTriggerWorkflow[];
+            };
+            if (payload.action === "n8n-trigger") {
+              void triggerN8nWorkflows(client, payload.workflows ?? []);
+            }
+            break;
+          }
           case "controls:lock":
             state.controlsLocked = true;
             break;
@@ -119,6 +212,8 @@ function cleanupScene() {
   if (state.scene) {
     state.scene.stop();
   }
+  state.triggerBusy = false;
+  clearHallsFeedback();
 }
 
 /**
@@ -132,6 +227,8 @@ export function disposeHalls() {
   state.isInitialized = false;
   state.selectedProject = null;
   state.controlsLocked = false;
+  state.triggerBusy = false;
+  clearHallsFeedback();
 }
 
 /**
@@ -325,6 +422,13 @@ export function renderHalls(props: HallsViewProps) {
         </svg>
         Exit 3D View
       </button>
+      <div
+        class="halls-feedback"
+        data-visible="false"
+        data-kind="info"
+        role="status"
+        aria-live="polite"
+      ></div>
     </div>
   `;
 }

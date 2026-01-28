@@ -11,6 +11,7 @@ import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
+  validateN8nTriggerParams,
   validateN8nWorkflowsParams,
 } from "../protocol/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
@@ -33,6 +34,12 @@ type N8nWorkflowsResult = {
   connected: boolean;
   workflows: N8nWorkflow[];
   error?: string;
+};
+
+type N8nTriggerResult = {
+  workflowId: string;
+  triggered: boolean;
+  executionId?: string;
 };
 
 type N8nConfig = {
@@ -66,10 +73,12 @@ function buildN8nApiUrl(params: { baseUrl: string; apiPath?: string; resource: s
   return base.toString();
 }
 
-async function fetchN8nJson(params: {
+async function requestN8nJson(params: {
   url: string;
   apiKey: string;
   timeoutSeconds: number;
+  method?: "GET" | "POST";
+  body?: Record<string, unknown> | null;
 }): Promise<unknown> {
   const parsed = new URL(params.url);
   if (!parsed.protocol.startsWith("http")) {
@@ -77,22 +86,26 @@ async function fetchN8nJson(params: {
   }
   const pinned = await resolvePinnedHostname(parsed.hostname);
   const dispatcher = createPinnedDispatcher(pinned);
+  const method = params.method ?? "GET";
+  const body = method === "GET" ? undefined : JSON.stringify(params.body ?? {});
   try {
     const res = await undiciFetch(params.url, {
-      method: "GET",
+      method,
       headers: {
         Accept: "application/json",
         "X-N8N-API-KEY": params.apiKey,
+        ...(method === "GET" ? {} : { "Content-Type": "application/json" }),
       },
+      body,
       dispatcher,
       signal: AbortSignal.timeout(params.timeoutSeconds * 1000),
     });
-    const body = await res.text();
+    const responseBody = await res.text();
     if (!res.ok) {
-      const detail = body.trim();
+      const detail = responseBody.trim();
       throw new Error(`n8n API request failed (${res.status}): ${detail || res.statusText}`);
     }
-    return body ? JSON.parse(body) : {};
+    return responseBody ? JSON.parse(responseBody) : {};
   } finally {
     await closeDispatcher(dispatcher);
   }
@@ -173,7 +186,7 @@ export const n8nHandlers: GatewayRequestHandlers = {
         apiPath: n8nConfig.apiPath,
         resource: "/workflows",
       });
-      const payload = await fetchN8nJson({ url, apiKey, timeoutSeconds });
+      const payload = await requestN8nJson({ url, apiKey, timeoutSeconds, method: "GET" });
       const workflows = filterWorkflows(extractWorkflows(payload), n8nConfig);
       respond(true, { connected: true, workflows } satisfies N8nWorkflowsResult, undefined);
     } catch (err) {
@@ -185,6 +198,95 @@ export const n8nHandlers: GatewayRequestHandlers = {
           error: err instanceof Error ? err.message : "Failed to fetch n8n workflows",
         } satisfies N8nWorkflowsResult,
         undefined,
+      );
+    }
+  },
+  "n8n.trigger": async ({ params, respond }) => {
+    if (!validateN8nTriggerParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid n8n.trigger params: ${formatValidationErrors(validateN8nTriggerParams.errors)}`,
+        ),
+      );
+      return;
+    }
+
+    const cfg = loadConfig();
+    const n8nConfig = resolveN8nConfig(cfg);
+    if (!n8nConfig?.enabled) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "n8n integration is disabled"));
+      return;
+    }
+
+    const baseUrl = n8nConfig.baseUrl?.trim() ?? "";
+    const apiKey = n8nConfig.apiKey?.trim() ?? "";
+    if (!baseUrl || !apiKey) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "n8n baseUrl or apiKey not configured"),
+      );
+      return;
+    }
+
+    const timeoutSeconds =
+      typeof n8nConfig.timeoutSeconds === "number" && n8nConfig.timeoutSeconds > 0
+        ? Math.floor(n8nConfig.timeoutSeconds)
+        : DEFAULT_TIMEOUT_SECONDS;
+    const p = params as { id: string; payload?: Record<string, unknown> };
+    const workflowId = p.id.trim();
+    if (!workflowId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid n8n.trigger params: missing id"),
+      );
+      return;
+    }
+
+    try {
+      const url = buildN8nApiUrl({
+        baseUrl,
+        apiPath: n8nConfig.apiPath,
+        resource: `/workflows/${encodeURIComponent(workflowId)}/run`,
+      });
+      const payload = await requestN8nJson({
+        url,
+        apiKey,
+        timeoutSeconds,
+        method: "POST",
+        body: p.payload ?? {},
+      });
+      const rawExecutionId =
+        payload && typeof payload === "object" && "id" in payload
+          ? (payload as { id?: unknown }).id
+          : undefined;
+      const executionId =
+        typeof rawExecutionId === "string"
+          ? rawExecutionId
+          : typeof rawExecutionId === "number"
+            ? String(rawExecutionId)
+            : undefined;
+      respond(
+        true,
+        {
+          workflowId,
+          triggered: true,
+          executionId: executionId?.trim() ? executionId : undefined,
+        } satisfies N8nTriggerResult,
+        undefined,
+      );
+    } catch (err) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.UNAVAILABLE,
+          err instanceof Error ? err.message : "Failed to trigger n8n workflow",
+        ),
       );
     }
   },

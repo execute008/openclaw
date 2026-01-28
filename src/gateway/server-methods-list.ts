@@ -37,6 +37,7 @@ const BASE_METHODS = [
   "skills.install",
   "skills.update",
   "n8n.workflows",
+  "n8n.trigger",
   "update.run",
   "voicewake.get",
   "voicewake.set",

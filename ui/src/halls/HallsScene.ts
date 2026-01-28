@@ -29,7 +29,7 @@ import { ParticleSystem } from "./effects/ParticleSystem";
 import { CircuitFloor } from "./effects/CircuitFloor";
 import { ProjectStation } from "./objects/ProjectStation";
 import { WorkflowConduit } from "./objects/WorkflowConduit";
-import { HolographicUI } from "./objects/HolographicUI";
+import { HolographicUI, type PanelAction } from "./objects/HolographicUI";
 import { AmbientAudio } from "./audio/AmbientAudio";
 import { hallsDataProvider, type HallsDataSnapshot } from "./data/HallsDataProvider";
 import {
@@ -38,6 +38,7 @@ import {
   type HallsConfig,
   type HallsEvent,
   type HallsEventHandler,
+  type AgentWorkflow,
   type Project,
 } from "./data/types";
 
@@ -92,6 +93,7 @@ export class HallsScene {
   private hoveredObject: THREE.Object3D | null = null;
   private selectedStation: ProjectStation | null = null;
   private teleportSurfaces: THREE.Object3D[] = [];
+  private n8nWorkflows: AgentWorkflow[] = [];
   private handScaleTarget:
     | { type: "station"; station: ProjectStation; baseScale: number }
     | { type: "ui"; baseScale: number }
@@ -265,9 +267,19 @@ export class HallsScene {
 
     // Setup holographic UI action handler
     this.holographicUI.onAction((action, project) => {
+      const payload: { action: string; project: Project; workflows?: Array<{ id: string; name: string }> } = {
+        action: action.id,
+        project,
+      };
+      if (action.id === "n8n-trigger") {
+        payload.workflows = this.n8nWorkflows.map((workflow) => ({
+          id: workflow.id,
+          name: workflow.name,
+        }));
+      }
       this.emitEvent({
         type: "project:action",
-        payload: { action: action.id, project },
+        payload,
         timestamp: Date.now(),
       });
     });
@@ -797,12 +809,28 @@ export class HallsScene {
       snapshot.workflows,
     );
 
+    this.n8nWorkflows = snapshot.workflows.filter((workflow) => workflow.source === "n8n");
+    this.updateHolographicActions();
+
     // Update minimap with project data
     this.minimap.setProjects(snapshot.projects);
 
     // Update particle intensity based on activity
     const activityLevel = snapshot.workflows.filter((w) => w.status === "running").length;
     this.particles.setIntensity(Math.min(1, activityLevel / 5 + 0.3));
+  }
+
+  private updateHolographicActions() {
+    const actions: PanelAction[] = this.holographicUI.getDefaultActions();
+    if (this.n8nWorkflows.length > 0) {
+      actions.push({
+        id: "n8n-trigger",
+        label: "Trigger",
+        icon: "⚡",
+        color: HALLS_COLORS.tertiary,
+      });
+    }
+    this.holographicUI.setActions(actions);
   }
 
   /**

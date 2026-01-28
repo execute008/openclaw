@@ -59,6 +59,17 @@ export class HolographicUI {
     this.createMetricsPanel();
   }
 
+  getDefaultActions(): PanelAction[] {
+    return DEFAULT_ACTIONS.map((action) => ({ ...action }));
+  }
+
+  setActions(actions: PanelAction[]) {
+    this.actions = actions.length ? actions.map((action) => ({ ...action })) : this.getDefaultActions();
+    if (this.visible && this.currentProject) {
+      this.showProjectDetails(this.currentProject);
+    }
+  }
+
   /**
    * Create the metrics dashboard panel.
    */
@@ -255,9 +266,16 @@ export class HolographicUI {
    * Draw action buttons at the bottom of the panel.
    */
   private drawActionButtons(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
-    const buttonWidth = 110;
+    const maxWidth = canvasWidth - 40;
+    const defaultButtonWidth = 110;
     const buttonHeight = 40;
     const buttonSpacing = 8;
+    const minTotalWidth =
+      this.actions.length * defaultButtonWidth + (this.actions.length - 1) * buttonSpacing;
+    const buttonWidth =
+      minTotalWidth > maxWidth
+        ? Math.floor((maxWidth - (this.actions.length - 1) * buttonSpacing) / this.actions.length)
+        : defaultButtonWidth;
     const totalWidth = this.actions.length * buttonWidth + (this.actions.length - 1) * buttonSpacing;
     const startX = (canvasWidth - totalWidth) / 2;
     const buttonY = canvasHeight - buttonHeight - 20;
@@ -304,7 +322,13 @@ export class HolographicUI {
       ctx.fillText(action.icon, x + 10, buttonY + 27);
 
       ctx.font = "14px Space Grotesk, sans-serif";
-      ctx.fillText(action.label, x + 35, buttonY + 26);
+      const labelX = x + 35;
+      const labelMaxWidth = buttonWidth - 40;
+      let label = action.label;
+      if (ctx.measureText(label).width > labelMaxWidth) {
+        label = label.slice(0, 6).trim() + "…";
+      }
+      ctx.fillText(label, labelX, buttonY + 26);
     });
   }
 

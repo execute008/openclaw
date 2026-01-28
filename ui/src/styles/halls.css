@@ -1,0 +1,553 @@
+/**
+ * Halls of Creation - Styles
+ *
+ * Styles for the 3D command center view.
+ * Dark, industrial aesthetic with glowing accents.
+ */
+
+/* ===========================================
+   Container & Canvas
+   =========================================== */
+
+.halls-container {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - var(--shell-topbar-height) - 120px);
+  min-height: 500px;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.halls-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.halls-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pointer lock cursor */
+.halls-canvas:focus {
+  outline: none;
+}
+
+/* ===========================================
+   Overlays
+   =========================================== */
+
+.halls-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(18, 20, 26, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+.halls-overlay__content {
+  text-align: center;
+  max-width: 400px;
+  padding: 40px;
+}
+
+.halls-overlay h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.halls-overlay p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.halls-overlay--disconnected h2 {
+  color: var(--warn);
+}
+
+/* Loading Animation */
+.halls-loader {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: halls-spin 1s linear infinite;
+}
+
+@keyframes halls-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===========================================
+   Controls Help
+   =========================================== */
+
+.halls-help {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 16px 20px;
+  background: rgba(18, 20, 26, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+  animation: halls-fade-in 0.3s ease-out;
+}
+
+@keyframes halls-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.halls-help h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-2);
+}
+
+.halls-help__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.halls-help__row kbd {
+  min-width: 60px;
+  padding: 2px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  text-align: center;
+}
+
+/* ===========================================
+   Status Bar
+   =========================================== */
+
+.halls-status {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: rgba(18, 20, 26, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+.halls-status__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.halls-status__label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.halls-status__value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.halls-status__value.warn {
+  color: var(--warn);
+}
+
+.halls-status__button {
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.halls-status__button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* ===========================================
+   Trigger Feedback
+   =========================================== */
+
+.halls-feedback {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  max-width: 320px;
+  padding: 10px 14px;
+  background: rgba(18, 20, 26, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.halls-feedback[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.halls-feedback[data-kind="success"] {
+  border-color: var(--ok);
+  color: var(--ok);
+  background: var(--ok-subtle);
+}
+
+.halls-feedback[data-kind="error"] {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-subtle);
+}
+
+.halls-feedback[data-kind="info"] {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  background: var(--accent-2-subtle);
+}
+
+/* ===========================================
+   Exit Button
+   =========================================== */
+
+.halls-exit {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background: rgba(18, 20, 26, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.halls-exit:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+
+.halls-exit:active {
+  transform: scale(0.98);
+}
+
+/* ===========================================
+   Full-screen Mode
+   =========================================== */
+
+.halls-container--fullscreen {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  z-index: 100;
+  border-radius: 0;
+}
+
+.halls-container--fullscreen .halls-canvas {
+  height: 100vh;
+}
+
+/* ===========================================
+   Responsive Adjustments
+   =========================================== */
+
+@media (max-width: 768px) {
+  .halls-help {
+    top: auto;
+    bottom: 80px;
+    left: 10px;
+    right: 10px;
+    padding: 12px 16px;
+  }
+
+  .halls-help__row {
+    font-size: 12px;
+  }
+
+  .halls-status {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .halls-exit {
+    top: 10px;
+    right: 10px;
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .halls-feedback {
+    left: 10px;
+    right: 10px;
+    bottom: 60px;
+    max-width: none;
+  }
+}
+
+/* ===========================================
+   Pointer Lock Indicator
+   =========================================== */
+
+.halls-container[data-locked="true"] .halls-canvas {
+  cursor: none;
+}
+
+.halls-container[data-locked="true"] .halls-exit,
+.halls-container[data-locked="true"] .halls-help,
+.halls-container[data-locked="true"] .halls-status {
+  opacity: 0.2;
+  transition: opacity 0.2s ease;
+}
+
+.halls-container[data-locked="true"]:hover .halls-exit,
+.halls-container[data-locked="true"]:hover .halls-help,
+.halls-container[data-locked="true"]:hover .halls-status {
+  opacity: 1;
+}
+
+/* ===========================================
+   Ready/Welcome Screen
+   =========================================== */
+
+.halls-overlay--ready {
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    rgba(18, 20, 26, 0.98) 0%,
+    rgba(20, 22, 29, 0.95) 50%,
+    rgba(18, 20, 26, 0.98) 100%
+  );
+}
+
+.halls-overlay--ready:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(18, 20, 26, 0.95) 0%,
+    rgba(26, 29, 37, 0.92) 50%,
+    rgba(18, 20, 26, 0.95) 100%
+  );
+}
+
+.halls-logo {
+  margin-bottom: 24px;
+  color: var(--accent-2);
+  animation: halls-pulse 2s ease-in-out infinite;
+}
+
+@keyframes halls-pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.halls-tagline {
+  margin-top: 16px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--accent-2);
+  opacity: 0.8;
+}
+
+.halls-retry-button {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: var(--accent-2);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.halls-retry-button:hover {
+  background: var(--accent-2-muted);
+  transform: translateY(-1px);
+}
+
+.halls-help__close {
+  margin-top: 12px;
+  padding: 6px 16px;
+  background: var(--accent-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.halls-help__close:hover {
+  background: var(--accent-2-muted);
+}
+
+.halls-status__item--project {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.halls-exit svg {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ===========================================
+   Selected Project Info Card
+   =========================================== */
+
+.halls-project-card {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  width: 300px;
+  padding: 16px;
+  background: rgba(18, 20, 26, 0.95);
+  border: 1px solid var(--accent-2);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  z-index: 5;
+  animation: halls-slide-in 0.2s ease-out;
+}
+
+@keyframes halls-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.halls-project-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.halls-project-card__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.halls-project-card__status {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.halls-project-card__status--active {
+  background: var(--ok-subtle);
+  color: var(--ok);
+}
+
+.halls-project-card__status--paused {
+  background: var(--warn-subtle);
+  color: var(--warn);
+}
+
+.halls-project-card__status--hunting {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.halls-project-card__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.halls-project-card__label {
+  color: var(--muted);
+}
+
+.halls-project-card__value {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+/* Energy Bar */
+.halls-energy-bar {
+  height: 8px;
+  margin-top: 12px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.halls-energy-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), var(--accent-2), var(--accent));
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
