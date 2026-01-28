@@ -17,6 +17,8 @@ import { Minimap } from "./ui/Minimap";
 import { HelpOverlay } from "./ui/HelpOverlay";
 import { ForgeEnvironment, ZONE_POSITIONS, type ZoneKey } from "./environment/Forge";
 import { IncubatorEnvironment } from "./environment/Incubator";
+import { ArchiveEnvironment } from "./environment/Archive";
+import { LabEnvironment } from "./environment/Lab";
 import { AtmosphereSystem } from "./effects/Atmosphere";
 import { ParticleSystem } from "./effects/ParticleSystem";
 import { CircuitFloor } from "./effects/CircuitFloor";
@@ -56,6 +58,8 @@ export class HallsScene {
   private helpOverlay: HelpOverlay;
   private forge: ForgeEnvironment;
   private incubator: IncubatorEnvironment;
+  private archive: ArchiveEnvironment;
+  private lab: LabEnvironment;
   private atmosphere: AtmosphereSystem;
   private particles: ParticleSystem;
   private circuitFloor: CircuitFloor;
@@ -141,6 +145,8 @@ export class HallsScene {
     this.helpOverlay = new HelpOverlay(this.container);
     this.forge = new ForgeEnvironment(this.scene);
     this.incubator = new IncubatorEnvironment(this.scene);
+    this.archive = new ArchiveEnvironment(this.scene);
+    this.lab = new LabEnvironment(this.scene);
     this.atmosphere = new AtmosphereSystem(this.scene, this.config);
     this.particles = new ParticleSystem(this.scene, this.config);
     this.circuitFloor = new CircuitFloor(this.scene);
@@ -657,6 +663,8 @@ export class HallsScene {
     this.circuitFloor.update(elapsed);
     this.forge.update(delta, elapsed);
     this.incubator.update(delta, elapsed);
+    this.archive.update(delta, elapsed);
+    this.lab.update(delta, elapsed);
     this.holographicUI.update(delta, this.camera);
 
     // Update project stations
@@ -718,6 +726,8 @@ export class HallsScene {
     this.circuitFloor.dispose();
     this.forge.dispose();
     this.incubator.dispose();
+    this.archive.dispose();
+    this.lab.dispose();
     this.holographicUI.dispose();
     this.audio.dispose();
 
