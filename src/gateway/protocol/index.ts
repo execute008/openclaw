@@ -104,6 +104,8 @@ import {
   NotionProjectsParamsSchema,
   type NotionProjectUpdateParams,
   NotionProjectUpdateParamsSchema,
+  type SheetsMetricsParams,
+  SheetsMetricsParamsSchema,
   LogsTailResultSchema,
   type ModelsListParams,
   ModelsListParamsSchema,
@@ -326,6 +328,8 @@ export const validateNotionProjectsParams = ajv.compile<NotionProjectsParams>(
 export const validateNotionProjectUpdateParams = ajv.compile<NotionProjectUpdateParams>(
   NotionProjectUpdateParamsSchema,
 );
+export const validateSheetsMetricsParams =
+  ajv.compile<SheetsMetricsParams>(SheetsMetricsParamsSchema);
 export const validateChatHistoryParams = ajv.compile(ChatHistoryParamsSchema);
 export const validateChatSendParams = ajv.compile(ChatSendParamsSchema);
 export const validateChatAbortParams = ajv.compile<ChatAbortParams>(ChatAbortParamsSchema);

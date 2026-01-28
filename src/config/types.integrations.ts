@@ -41,7 +41,39 @@ export type NotionIntegrationConfig = {
   };
 };
 
+export type SheetsIntegrationConfig = {
+  /** Enable Google Sheets metrics import. */
+  enabled?: boolean;
+  /** Google API key for Sheets access. */
+  apiKey?: string;
+  /** The spreadsheet ID from the Google Sheets URL. */
+  spreadsheetId?: string;
+  /** Timeout for Sheets API requests (seconds). */
+  timeoutSeconds?: number;
+  /** Sheet range for metrics data (default: Metrics!A1:B10). */
+  metricsRange?: string;
+  /** Sheet range for leads data (default: Leads!A2:F100). */
+  leadsRange?: string;
+  /** Mapping of metric labels to standard fields. */
+  metricsMap?: {
+    monthlyRevenue?: string;
+    pipelineValue?: string;
+    responseRate?: string;
+    activeLeads?: string;
+    averageProjectValue?: string;
+  };
+  /** Mapping of column headers to lead fields. */
+  leadsMap?: {
+    name?: string;
+    company?: string;
+    value?: string;
+    status?: string;
+    source?: string;
+  };
+};
+
 export type IntegrationsConfig = {
   n8n?: N8nIntegrationConfig;
   notion?: NotionIntegrationConfig;
+  sheets?: SheetsIntegrationConfig;
 };

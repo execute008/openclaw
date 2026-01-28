@@ -527,6 +527,30 @@ export type NotionProjectUpdateResult = {
   error?: string;
 };
 
+export type SheetsMetrics = {
+  monthlyRevenue?: number;
+  pipelineValue?: number;
+  responseRate?: number;
+  activeLeads?: number;
+  averageProjectValue?: number;
+};
+
+export type SheetsLead = {
+  id: string;
+  name?: string;
+  company?: string;
+  value?: number;
+  status?: string;
+  source?: string;
+};
+
+export type SheetsMetricsResult = {
+  connected: boolean;
+  metrics?: SheetsMetrics;
+  leads?: SheetsLead[];
+  error?: string;
+};
+
 export type SkillsStatusConfigCheck = {
   path: string;
   value: unknown;

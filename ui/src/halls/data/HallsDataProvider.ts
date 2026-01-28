@@ -15,6 +15,7 @@ import type {
   N8nWorkflowsResult,
   NotionProjectsResult,
   NotionProjectUpdateResult,
+  SheetsMetricsResult,
 } from "../../ui/types";
 import type {
   Project,
@@ -131,6 +132,7 @@ export class HallsDataProvider {
       hallsConfig,
       n8nResult,
       notionResult,
+      sheetsResult,
     ] = (await Promise.all([
       this.fetchAgents(),
       this.fetchSessions(),
@@ -139,6 +141,7 @@ export class HallsDataProvider {
       this.fetchHallsConfig(),
       this.fetchN8nWorkflows(),
       this.fetchNotionProjects(),
+      this.fetchSheetsMetrics(),
     ])) as [
       AgentsListResult,
       SessionsListResult,
@@ -147,6 +150,7 @@ export class HallsDataProvider {
       { projects: Record<string, SavedProjectConfig> } | null,
       N8nWorkflowsResult | null,
       NotionProjectsResult | null,
+      SheetsMetricsResult | null,
     ];
 
     // Map agents
@@ -203,8 +207,8 @@ export class HallsDataProvider {
     // Calculate energy metrics from activity
     const energyMetrics = this.calculateEnergyMetrics(sessions, cronJobs);
 
-    // Calculate business metrics
-    const businessMetrics = this.calculateBusinessMetrics(sessions, projects);
+    // Calculate business metrics (merge with Google Sheets data if available)
+    const businessMetrics = this.calculateBusinessMetrics(sessions, projects, sheetsResult);
 
     this.cachedSnapshot = {
       agents,
@@ -303,6 +307,18 @@ export class HallsDataProvider {
     if (!this.client) throw new Error("Not connected");
     try {
       return await this.client.request<NotionProjectsResult>("notion.projects", {});
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch Google Sheets metrics from gateway.
+   */
+  private async fetchSheetsMetrics(): Promise<SheetsMetricsResult | null> {
+    if (!this.client) throw new Error("Not connected");
+    try {
+      return await this.client.request<SheetsMetricsResult>("sheets.metrics", {});
     } catch {
       return null;
     }
@@ -872,22 +888,29 @@ export class HallsDataProvider {
   }
 
   /**
-   * Calculate business metrics (placeholders - would connect to real data).
+   * Calculate business metrics, merging Google Sheets data when available.
    */
   private calculateBusinessMetrics(
     sessions: MappedSession[],
     projects: Project[],
+    sheetsResult: SheetsMetricsResult | null,
   ): BusinessMetrics {
     const completedProjects = projects.filter((p) => p.status === "completed").length;
     const activeProjects = projects.filter((p) => p.status === "active").length;
+    const sheetsMetrics = sheetsResult?.metrics;
+    const sheetsLeads = sheetsResult?.leads ?? [];
 
+    // Use Google Sheets data when available, fall back to heuristics
     return {
-      monthlyRevenue: 0, // Would come from external source
-      pipelineValue: activeProjects * 1000, // Placeholder
-      responseRate: sessions.length > 0 ? 0.85 : 0,
-      activeLeads: Math.floor(sessions.length / 3),
+      monthlyRevenue: sheetsMetrics?.monthlyRevenue ?? 0,
+      pipelineValue:
+        sheetsMetrics?.pipelineValue ??
+        sheetsLeads.reduce((sum, lead) => sum + (lead.value ?? 0), 0) ||
+        activeProjects * 1000,
+      responseRate: sheetsMetrics?.responseRate ?? (sessions.length > 0 ? 0.85 : 0),
+      activeLeads: sheetsMetrics?.activeLeads ?? sheetsLeads.length || Math.floor(sessions.length / 3),
       projectsCompleted: completedProjects,
-      averageProjectValue: 0,
+      averageProjectValue: sheetsMetrics?.averageProjectValue ?? 0,
     };
   }
 

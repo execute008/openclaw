@@ -14,6 +14,7 @@ import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { n8nHandlers } from "./server-methods/n8n.js";
 import { notionHandlers } from "./server-methods/notion.js";
+import { sheetsHandlers } from "./server-methods/sheets.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
@@ -71,6 +72,7 @@ const READ_METHODS = new Set([
   "cron.runs",
   "n8n.workflows",
   "notion.projects",
+  "sheets.metrics",
   "system-presence",
   "last-heartbeat",
   "node.list",
@@ -173,6 +175,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...updateHandlers,
   ...n8nHandlers,
   ...notionHandlers,
+  ...sheetsHandlers,
   ...nodeHandlers,
   ...sendHandlers,
   ...usageHandlers,

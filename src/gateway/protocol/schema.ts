@@ -10,6 +10,7 @@ export * from "./schema/frames.js";
 export * from "./schema/logs-chat.js";
 export * from "./schema/n8n.js";
 export * from "./schema/notion.js";
+export * from "./schema/sheets.js";
 export * from "./schema/nodes.js";
 export * from "./schema/protocol-schemas.js";
 export * from "./schema/sessions.js";

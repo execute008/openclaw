@@ -285,6 +285,37 @@ export const MoltbotSchema = z
           })
           .strict()
           .optional(),
+        sheets: z
+          .object({
+            enabled: z.boolean().optional(),
+            apiKey: z.string().optional(),
+            spreadsheetId: z.string().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+            metricsRange: z.string().optional(),
+            leadsRange: z.string().optional(),
+            metricsMap: z
+              .object({
+                monthlyRevenue: z.string().optional(),
+                pipelineValue: z.string().optional(),
+                responseRate: z.string().optional(),
+                activeLeads: z.string().optional(),
+                averageProjectValue: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+            leadsMap: z
+              .object({
+                name: z.string().optional(),
+                company: z.string().optional(),
+                value: z.string().optional(),
+                status: z.string().optional(),
+                source: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
