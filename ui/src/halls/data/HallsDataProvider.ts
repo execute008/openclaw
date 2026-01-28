@@ -49,6 +49,10 @@ const HALLS_CONFIG_KEY = "halls";
 const INCUBATOR_HEIGHT = 10.5;
 const ARCHIVE_HEIGHT = 0.5;
 const ARCHIVE_DEPTH = -32;
+const FORGE_RADIUS = 12;
+const LAB_HEIGHT = 1.1;
+const LAB_CENTER_X = 22;
+const LAB_CENTER_Z = 0;
 
 type SavedProjectConfig = {
   position?: ProjectPosition;
@@ -398,6 +402,7 @@ export class HallsDataProvider {
       const hasRecentActivity = agentSessions.some((s) => s.isActive);
       const savedEntry = savedPositions[agent.id];
       const savedPosition = savedEntry?.position;
+      const type: Project["type"] = agent.isDefault ? "personal" : "experiment";
 
       let status: Project["status"] = "paused";
       if (hasRecentActivity) {
@@ -417,43 +422,62 @@ export class HallsDataProvider {
       return {
         agent,
         agentSessions,
+        type,
         status,
       };
     });
 
     const huntingCount = agentSummaries.filter((summary) => summary.status === "hunting").length;
     const archiveCount = agentSummaries.filter((summary) => summary.status === "completed").length;
+    const labCount = agentSummaries.filter(
+      (summary) => this.resolveProjectZone(summary.status, summary.type) === "lab",
+    ).length;
     let huntingIndex = 0;
     let archiveIndex = 0;
+    let labIndex = 0;
 
     // Create a project for each agent
     agentSummaries.forEach((summary, index) => {
-      const { agent, agentSessions, status } = summary;
+      const { agent, agentSessions, status, type } = summary;
 
       // Calculate energy based on activity
       const energy = Math.min(10, Math.max(1, Math.floor(agentSessions.length / 2) + 1));
 
-      const zone: Project["zone"] =
-        status === "completed" ? "archive" : status === "hunting" ? "incubator" : "forge";
+      const zone = this.resolveProjectZone(status, type);
 
       // Get saved position or generate default
       const savedEntry = savedPositions[agent.id];
       const savedPos = savedEntry?.position;
       const savedMetadata = savedEntry?.metadata ?? {};
+      const shouldUseSavedPosition =
+        Boolean(savedPos) &&
+        !(zone === "lab" &&
+          savedPos &&
+          (this.isArchivePosition(savedPos) || this.isForgePosition(savedPos)));
       const position = savedPos
-        ? status === "completed" && !this.isArchivePosition(savedPos)
-          ? this.generateArchivePosition(archiveIndex++, archiveCount)
-          : this.applyZoneHeight(savedPos, zone)
+        ? shouldUseSavedPosition
+          ? status === "completed" && !this.isArchivePosition(savedPos)
+            ? this.generateArchivePosition(archiveIndex++, archiveCount)
+            : this.applyZoneHeight(savedPos, zone)
+          : zone === "incubator"
+            ? this.generateIncubatorPosition(huntingIndex++, huntingCount)
+            : zone === "archive"
+              ? this.generateArchivePosition(archiveIndex++, archiveCount)
+              : zone === "lab"
+                ? this.generateLabPosition(labIndex++, labCount)
+                : this.generateDefaultPosition(index, agents.length)
         : zone === "incubator"
           ? this.generateIncubatorPosition(huntingIndex++, huntingCount)
           : zone === "archive"
             ? this.generateArchivePosition(archiveIndex++, archiveCount)
-            : this.generateDefaultPosition(index, agents.length);
+            : zone === "lab"
+              ? this.generateLabPosition(labIndex++, labCount)
+              : this.generateDefaultPosition(index, agents.length);
 
       projects.push({
         id: agent.id,
         name: agent.name,
-        type: agent.isDefault ? "personal" : "experiment",
+        type,
         status,
         zone,
         energy,
@@ -479,6 +503,13 @@ export class HallsDataProvider {
    */
   private isArchivePosition(position: ProjectPosition): boolean {
     return position.z <= ARCHIVE_DEPTH + 2;
+  }
+
+  /**
+   * Check whether a position is still inside the forge zone.
+   */
+  private isForgePosition(position: ProjectPosition): boolean {
+    return Math.hypot(position.x, position.z) <= FORGE_RADIUS;
   }
 
   /**
@@ -531,6 +562,20 @@ export class HallsDataProvider {
   }
 
   /**
+   * Generate a default position for a project in the lab.
+   */
+  private generateLabPosition(index: number, total: number): ProjectPosition {
+    const radius = 4 + Math.floor(index / 6) * 2.5;
+    const angle = (index / Math.max(1, Math.min(6, total))) * Math.PI * 2;
+
+    return {
+      x: LAB_CENTER_X + Math.cos(angle) * radius,
+      y: LAB_HEIGHT,
+      z: LAB_CENTER_Z + Math.sin(angle) * radius,
+    };
+  }
+
+  /**
    * Apply zone-specific height adjustments to saved positions.
    */
   private applyZoneHeight(position: ProjectPosition, zone: Project["zone"]): ProjectPosition {
@@ -542,7 +587,28 @@ export class HallsDataProvider {
       return { ...position, y: ARCHIVE_HEIGHT };
     }
 
+    if (zone === "lab") {
+      return { ...position, y: LAB_HEIGHT };
+    }
+
     return position;
+  }
+
+  /**
+   * Determine whether a project type should live in the Lab.
+   */
+  private isLabType(type: Project["type"]): boolean {
+    return type === "personal" || type === "experiment";
+  }
+
+  /**
+   * Resolve the target zone for a project based on status and type.
+   */
+  private resolveProjectZone(status: ProjectStatus, type: Project["type"]): Project["zone"] {
+    if (status === "completed") return "archive";
+    if (this.isLabType(type)) return "lab";
+    if (status === "hunting") return "incubator";
+    return "forge";
   }
 
   /**
