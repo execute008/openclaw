@@ -49,6 +49,29 @@ export interface Project {
   updatedAt: Date;
 }
 
+export type NotionProjectMetadata = {
+  client?: string;
+  deadline?: string;
+  revenue?: number;
+  impact?: string | number;
+  techStack?: string[];
+  description?: string;
+  customColor?: string;
+  icon?: string;
+  size?: string;
+};
+
+export type NotionProject = {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  type?: string | null;
+  url?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  metadata?: NotionProjectMetadata;
+};
+
 // ============================================================================
 // Agent Workflow Types
 // ============================================================================
@@ -96,6 +119,96 @@ export type N8nWorkflow = {
     finishedAt?: string | null;
   } | null;
 };
+
+const NOTION_STATUS_KEYWORDS: Array<{ status: ProjectStatus; keywords: string[] }> = [
+  { status: "active", keywords: ["active", "in progress", "doing"] },
+  { status: "paused", keywords: ["paused", "blocked", "backlog"] },
+  { status: "completed", keywords: ["done", "complete", "completed", "shipped"] },
+  { status: "hunting", keywords: ["hunting", "idea", "exploring"] },
+];
+
+const NOTION_TYPE_KEYWORDS: Array<{ type: ProjectType; keywords: string[] }> = [
+  { type: "client", keywords: ["client", "customer"] },
+  { type: "personal", keywords: ["personal"] },
+  { type: "experiment", keywords: ["experiment", "lab", "prototype"] },
+];
+
+export function resolveNotionStatus(value?: string | null): ProjectStatus {
+  const raw = value?.toLowerCase() ?? "";
+  for (const rule of NOTION_STATUS_KEYWORDS) {
+    if (rule.keywords.some((keyword) => raw.includes(keyword))) return rule.status;
+  }
+  return "paused";
+}
+
+export function resolveNotionType(value?: string | null): ProjectType {
+  const raw = value?.toLowerCase() ?? "";
+  for (const rule of NOTION_TYPE_KEYWORDS) {
+    if (rule.keywords.some((keyword) => raw.includes(keyword))) return rule.type;
+  }
+  return "client";
+}
+
+function normalizeNotionSize(value?: string): ProjectSize | undefined {
+  if (!value) return undefined;
+  const lower = value.toLowerCase();
+  if (lower.includes("small")) return "small";
+  if (lower.includes("large")) return "large";
+  if (lower.includes("medium") || lower.includes("med")) return "medium";
+  return undefined;
+}
+
+export function mapNotionProjectToProject(params: {
+  notion: NotionProject;
+  position: ProjectPosition;
+  energy: number;
+  zone: ZoneType;
+  linkedAgents?: string[];
+  statusOverride?: ProjectStatus;
+  typeOverride?: ProjectType;
+  metadataOverride?: ProjectMetadata;
+}): Project {
+  const { notion, position, energy, zone } = params;
+  const status = params.statusOverride ?? resolveNotionStatus(notion.status);
+  const type = params.typeOverride ?? resolveNotionType(notion.type);
+  const baseMetadata = notion.metadata ?? {};
+  const override = params.metadataOverride ?? {};
+  const overrideDeadline = override.deadline;
+  const normalizedOverride: ProjectMetadata = {
+    ...override,
+    ...(overrideDeadline instanceof Date
+      ? {}
+      : typeof overrideDeadline === "string" && !Number.isNaN(new Date(overrideDeadline).getTime())
+        ? { deadline: new Date(overrideDeadline) }
+        : {}),
+  };
+  const metadata: ProjectMetadata = {
+    client: baseMetadata.client,
+    deadline: baseMetadata.deadline ? new Date(baseMetadata.deadline) : undefined,
+    revenue: baseMetadata.revenue,
+    impact: baseMetadata.impact,
+    techStack: baseMetadata.techStack,
+    description: baseMetadata.description,
+    customColor: baseMetadata.customColor,
+    icon: baseMetadata.icon,
+    size: normalizeNotionSize(baseMetadata.size),
+    ...normalizedOverride,
+  };
+
+  return {
+    id: notion.id,
+    name: notion.name?.trim() || `Project ${notion.id.slice(0, 6)}`,
+    type,
+    status,
+    zone,
+    energy,
+    position,
+    linkedAgents: params.linkedAgents ?? [],
+    metadata,
+    createdAt: notion.createdAt ? new Date(notion.createdAt) : new Date(),
+    updatedAt: notion.updatedAt ? new Date(notion.updatedAt) : new Date(),
+  };
+}
 
 const WORKFLOW_TYPE_RULES: Array<{ type: WorkflowType; keywords: string[] }> = [
   { type: "lead-gen", keywords: ["lead", "prospect"] },

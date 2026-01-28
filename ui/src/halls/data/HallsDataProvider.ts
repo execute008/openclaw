@@ -13,6 +13,8 @@ import type {
   CronStatus,
   ChannelsStatusSnapshot,
   N8nWorkflowsResult,
+  NotionProjectsResult,
+  NotionProjectUpdateResult,
 } from "../../ui/types";
 import type {
   Project,
@@ -21,6 +23,7 @@ import type {
   ProjectStatus,
   AgentWorkflow,
   N8nWorkflow,
+  NotionProject,
   EnergyMetrics,
   BusinessMetrics,
   MappedSession,
@@ -29,7 +32,12 @@ import type {
   WorkflowType,
   WorkflowStatus,
 } from "./types";
-import { mapN8nWorkflowToAgentWorkflow } from "./types";
+import {
+  mapN8nWorkflowToAgentWorkflow,
+  mapNotionProjectToProject,
+  resolveNotionStatus,
+  resolveNotionType,
+} from "./types";
 
 export interface HallsDataSnapshot {
   agents: MappedAgent[];
@@ -67,6 +75,7 @@ export class HallsDataProvider {
   private client: GatewayBrowserClient | null = null;
   private cachedSnapshot: HallsDataSnapshot | null = null;
   private updateListeners: Set<(snapshot: HallsDataSnapshot) => void> = new Set();
+  private notionProjectIds: Set<string> = new Set();
 
   constructor() {}
 
@@ -114,22 +123,31 @@ export class HallsDataProvider {
       throw new Error("HallsDataProvider not connected to gateway");
     }
 
-    const [agentsResult, sessionsResult, cronResult, channelsResult, hallsConfig, n8nResult] =
-      (await Promise.all([
-        this.fetchAgents(),
-        this.fetchSessions(),
-        this.fetchCronJobs(),
-        this.fetchChannels(),
-        this.fetchHallsConfig(),
-        this.fetchN8nWorkflows(),
-      ])) as [
-        AgentsListResult,
-        SessionsListResult,
-        { jobs: CronJob[]; status: CronStatus | null },
-        ChannelsStatusSnapshot | null,
-        { projects: Record<string, SavedProjectConfig> } | null,
-        N8nWorkflowsResult | null,
-      ];
+    const [
+      agentsResult,
+      sessionsResult,
+      cronResult,
+      channelsResult,
+      hallsConfig,
+      n8nResult,
+      notionResult,
+    ] = (await Promise.all([
+      this.fetchAgents(),
+      this.fetchSessions(),
+      this.fetchCronJobs(),
+      this.fetchChannels(),
+      this.fetchHallsConfig(),
+      this.fetchN8nWorkflows(),
+      this.fetchNotionProjects(),
+    ])) as [
+      AgentsListResult,
+      SessionsListResult,
+      { jobs: CronJob[]; status: CronStatus | null },
+      ChannelsStatusSnapshot | null,
+      { projects: Record<string, SavedProjectConfig> } | null,
+      N8nWorkflowsResult | null,
+      NotionProjectsResult | null,
+    ];
 
     // Map agents
     const agents: MappedAgent[] = agentsResult.agents.map((agent) => ({
@@ -172,8 +190,15 @@ export class HallsDataProvider {
     // Map channels
     const channels = this.mapChannels(channelsResult);
 
-    // Build projects from agents + sessions + saved positions
-    const projects = this.buildProjects(agents, sessions, hallsConfig?.projects ?? {});
+    const savedProjects = hallsConfig?.projects ?? {};
+    const notionProjects = notionResult?.projects ?? [];
+    const useNotionProjects = Boolean(notionResult?.connected);
+    this.notionProjectIds = new Set(notionProjects.map((project) => project.id));
+
+    // Build projects from Notion (if configured) or agents + sessions
+    const projects = useNotionProjects
+      ? this.buildNotionProjects(notionProjects, savedProjects)
+      : this.buildProjects(agents, sessions, savedProjects);
 
     // Calculate energy metrics from activity
     const energyMetrics = this.calculateEnergyMetrics(sessions, cronJobs);
@@ -272,6 +297,18 @@ export class HallsDataProvider {
   }
 
   /**
+   * Fetch Notion projects from gateway.
+   */
+  private async fetchNotionProjects(): Promise<NotionProjectsResult | null> {
+    if (!this.client) throw new Error("Not connected");
+    try {
+      return await this.client.request<NotionProjectsResult>("notion.projects", {});
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Fetch halls-specific config from gateway.
    */
   private async fetchHallsConfig(): Promise<{
@@ -300,26 +337,7 @@ export class HallsDataProvider {
     if (!this.client) throw new Error("Not connected");
 
     try {
-      // Get current config
-      const result = await this.client.request<{ config: Record<string, unknown> }>(
-        "config.get",
-        {},
-      );
-      const currentConfig = result?.config ?? {};
-      const hallsConfig = (currentConfig[HALLS_CONFIG_KEY] as Record<string, unknown>) ?? {};
-      const projects = (hallsConfig.projects as Record<string, SavedProjectConfig>) ?? {};
-
-      // Update project position
-      const currentEntry = projects[projectId];
-      projects[projectId] = {
-        ...currentEntry,
-        position,
-      };
-      hallsConfig.projects = projects;
-      currentConfig[HALLS_CONFIG_KEY] = hallsConfig;
-
-      // Save back to gateway
-      await this.client.request("config.save", { config: currentConfig });
+      await this.updateProjectConfig(projectId, { position });
 
       // Update cached snapshot
       if (this.cachedSnapshot) {
@@ -333,6 +351,100 @@ export class HallsDataProvider {
       console.error("[HallsDataProvider] Failed to save project position:", err);
       throw err;
     }
+  }
+
+  /**
+   * Save project status to gateway config and sync to Notion.
+   */
+  async updateProjectStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    if (!this.client) throw new Error("Not connected");
+
+    try {
+      if (this.notionProjectIds.has(projectId)) {
+        await this.client.request<NotionProjectUpdateResult>("notion.project.update", {
+          id: projectId,
+          status,
+        });
+      }
+
+      await this.updateProjectConfig(projectId, { status });
+
+      if (this.cachedSnapshot) {
+        const project = this.cachedSnapshot.projects.find((p) => p.id === projectId);
+        if (project) {
+          project.status = status;
+          project.zone = this.resolveProjectZone(status, project.type);
+          this.notifyListeners();
+        }
+      }
+    } catch (err) {
+      console.error("[HallsDataProvider] Failed to save project status:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Save project metadata to gateway config and sync to Notion.
+   */
+  async updateProjectMetadata(projectId: string, metadata: Partial<ProjectMetadata>): Promise<void> {
+    if (!this.client) throw new Error("Not connected");
+
+    try {
+      const notionMetadata = this.serializeNotionMetadata(metadata);
+      if (this.notionProjectIds.has(projectId)) {
+        await this.client.request<NotionProjectUpdateResult>("notion.project.update", {
+          id: projectId,
+          metadata: notionMetadata,
+        });
+      }
+
+      await this.updateProjectConfig(projectId, { metadata });
+
+      if (this.cachedSnapshot) {
+        const project = this.cachedSnapshot.projects.find((p) => p.id === projectId);
+        if (project) {
+          project.metadata = { ...project.metadata, ...metadata };
+          this.notifyListeners();
+        }
+      }
+    } catch (err) {
+      console.error("[HallsDataProvider] Failed to save project metadata:", err);
+      throw err;
+    }
+  }
+
+  private serializeNotionMetadata(metadata: Partial<ProjectMetadata>): Record<string, unknown> {
+    return {
+      ...metadata,
+      deadline:
+        metadata.deadline instanceof Date ? metadata.deadline.toISOString() : metadata.deadline,
+    };
+  }
+
+  private async updateProjectConfig(
+    projectId: string,
+    update: Partial<SavedProjectConfig>,
+  ): Promise<void> {
+    if (!this.client) throw new Error("Not connected");
+
+    const result = await this.client.request<{ config: Record<string, unknown> }>("config.get", {});
+    const currentConfig = result?.config ?? {};
+    const hallsConfig = (currentConfig[HALLS_CONFIG_KEY] as Record<string, unknown>) ?? {};
+    const projects = (hallsConfig.projects as Record<string, SavedProjectConfig>) ?? {};
+    const currentEntry = projects[projectId] ?? {};
+    const mergedMetadata = update.metadata
+      ? { ...(currentEntry.metadata ?? {}), ...update.metadata }
+      : currentEntry.metadata;
+
+    projects[projectId] = {
+      ...currentEntry,
+      ...update,
+      ...(mergedMetadata ? { metadata: mergedMetadata } : {}),
+    };
+    hallsConfig.projects = projects;
+    currentConfig[HALLS_CONFIG_KEY] = hallsConfig;
+
+    await this.client.request("config.save", { config: currentConfig });
   }
 
   /**
@@ -527,6 +639,98 @@ export class HallsDataProvider {
     });
 
     return projects;
+  }
+
+  /**
+   * Build project representations from Notion database entries.
+   */
+  private buildNotionProjects(
+    notionProjects: NotionProject[],
+    savedPositions: Record<string, SavedProjectConfig>,
+  ): Project[] {
+    const summaries = notionProjects.map((project) => {
+      const savedEntry = savedPositions[project.id];
+      const status = savedEntry?.status ?? resolveNotionStatus(project.status);
+      const type = resolveNotionType(project.type);
+      const zone = this.resolveProjectZone(status, type);
+      return { project, status, type, zone, savedEntry };
+    });
+
+    const counts = {
+      forge: summaries.filter((summary) => summary.zone === "forge").length,
+      incubator: summaries.filter((summary) => summary.zone === "incubator").length,
+      archive: summaries.filter((summary) => summary.zone === "archive").length,
+      lab: summaries.filter((summary) => summary.zone === "lab").length,
+    };
+
+    let forgeIndex = 0;
+    let incubatorIndex = 0;
+    let archiveIndex = 0;
+    let labIndex = 0;
+
+    const projects: Project[] = [];
+
+    summaries.forEach((summary) => {
+      const { project, status, type, zone, savedEntry } = summary;
+      const savedPos = savedEntry?.position;
+      const savedMetadata = savedEntry?.metadata ?? {};
+      const shouldUseSavedPosition =
+        Boolean(savedPos) &&
+        !(zone === "lab" &&
+          savedPos &&
+          (this.isArchivePosition(savedPos) || this.isForgePosition(savedPos)));
+
+      const position = savedPos
+        ? shouldUseSavedPosition
+          ? status === "completed" && !this.isArchivePosition(savedPos)
+            ? this.generateArchivePosition(archiveIndex++, counts.archive)
+            : this.applyZoneHeight(savedPos, zone)
+          : zone === "incubator"
+            ? this.generateIncubatorPosition(incubatorIndex++, counts.incubator)
+            : zone === "archive"
+              ? this.generateArchivePosition(archiveIndex++, counts.archive)
+              : zone === "lab"
+                ? this.generateLabPosition(labIndex++, counts.lab)
+                : this.generateDefaultPosition(forgeIndex++, counts.forge)
+        : zone === "incubator"
+          ? this.generateIncubatorPosition(incubatorIndex++, counts.incubator)
+          : zone === "archive"
+            ? this.generateArchivePosition(archiveIndex++, counts.archive)
+            : zone === "lab"
+              ? this.generateLabPosition(labIndex++, counts.lab)
+              : this.generateDefaultPosition(forgeIndex++, counts.forge);
+
+      const energy = this.resolveNotionEnergy(status);
+      projects.push(
+        mapNotionProjectToProject({
+          notion: project,
+          position,
+          energy,
+          zone,
+          linkedAgents: [],
+          statusOverride: status,
+          typeOverride: type,
+          metadataOverride: savedMetadata,
+        }),
+      );
+    });
+
+    return projects;
+  }
+
+  private resolveNotionEnergy(status: ProjectStatus): number {
+    switch (status) {
+      case "active":
+        return 8;
+      case "hunting":
+        return 6;
+      case "paused":
+        return 4;
+      case "completed":
+        return 3;
+      default:
+        return 5;
+    }
   }
 
   /**

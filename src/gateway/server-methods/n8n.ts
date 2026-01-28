@@ -186,9 +186,9 @@ export const n8nHandlers: GatewayRequestHandlers = {
         apiPath: n8nConfig.apiPath,
         resource: "/workflows",
       });
-      const payload = await requestN8nJson({ url, apiKey, timeoutSeconds, method: "GET" });
-      const workflows = filterWorkflows(extractWorkflows(payload), n8nConfig);
-      respond(true, { connected: true, workflows } satisfies N8nWorkflowsResult, undefined);
+       const payload = await requestN8nJson({ url, apiKey, timeoutSeconds, method: "GET" });
+       const workflows = filterWorkflows(extractWorkflows(payload), n8nConfig);
+       respond(true, { connected: true, workflows } satisfies N8nWorkflowsResult, undefined);
     } catch (err) {
       respond(
         true,
@@ -239,11 +239,7 @@ export const n8nHandlers: GatewayRequestHandlers = {
     const p = params as { id: string; payload?: Record<string, unknown> };
     const workflowId = p.id.trim();
     if (!workflowId) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "invalid n8n.trigger params: missing id"),
-      );
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "invalid n8n.trigger params: missing id"));
       return;
     }
 

@@ -492,6 +492,41 @@ export type N8nTriggerResult = {
   executionId?: string;
 };
 
+export type NotionProjectMetadata = {
+  client?: string;
+  deadline?: string;
+  revenue?: number;
+  impact?: string | number;
+  techStack?: string[];
+  description?: string;
+  customColor?: string;
+  icon?: string;
+  size?: string;
+};
+
+export type NotionProject = {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  type?: string | null;
+  url?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  metadata?: NotionProjectMetadata;
+};
+
+export type NotionProjectsResult = {
+  connected: boolean;
+  projects: NotionProject[];
+  error?: string;
+};
+
+export type NotionProjectUpdateResult = {
+  id: string;
+  updated: boolean;
+  error?: string;
+};
+
 export type SkillsStatusConfigCheck = {
   path: string;
   value: unknown;

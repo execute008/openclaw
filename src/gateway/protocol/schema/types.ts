@@ -84,6 +84,7 @@ import type {
   LogsTailResultSchema,
 } from "./logs-chat.js";
 import type { N8nTriggerParamsSchema, N8nWorkflowsParamsSchema } from "./n8n.js";
+import type { NotionProjectUpdateParamsSchema, NotionProjectsParamsSchema } from "./notion.js";
 import type {
   NodeDescribeParamsSchema,
   NodeEventParamsSchema,
@@ -196,6 +197,8 @@ export type LogsTailParams = Static<typeof LogsTailParamsSchema>;
 export type LogsTailResult = Static<typeof LogsTailResultSchema>;
 export type N8nWorkflowsParams = Static<typeof N8nWorkflowsParamsSchema>;
 export type N8nTriggerParams = Static<typeof N8nTriggerParamsSchema>;
+export type NotionProjectsParams = Static<typeof NotionProjectsParamsSchema>;
+export type NotionProjectUpdateParams = Static<typeof NotionProjectUpdateParamsSchema>;
 export type ExecApprovalsGetParams = Static<typeof ExecApprovalsGetParamsSchema>;
 export type ExecApprovalsSetParams = Static<typeof ExecApprovalsSetParamsSchema>;
 export type ExecApprovalsNodeGetParams = Static<typeof ExecApprovalsNodeGetParamsSchema>;

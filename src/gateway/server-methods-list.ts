@@ -38,6 +38,8 @@ const BASE_METHODS = [
   "skills.update",
   "n8n.workflows",
   "n8n.trigger",
+  "notion.projects",
+  "notion.project.update",
   "update.run",
   "voicewake.get",
   "voicewake.set",

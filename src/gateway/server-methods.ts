@@ -13,6 +13,7 @@ import { healthHandlers } from "./server-methods/health.js";
 import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { n8nHandlers } from "./server-methods/n8n.js";
+import { notionHandlers } from "./server-methods/notion.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
@@ -69,6 +70,7 @@ const READ_METHODS = new Set([
   "cron.status",
   "cron.runs",
   "n8n.workflows",
+  "notion.projects",
   "system-presence",
   "last-heartbeat",
   "node.list",
@@ -91,6 +93,7 @@ const WRITE_METHODS = new Set([
   "chat.abort",
   "browser.request",
   "n8n.trigger",
+  "notion.project.update",
 ]);
 
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
@@ -169,6 +172,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...systemHandlers,
   ...updateHandlers,
   ...n8nHandlers,
+  ...notionHandlers,
   ...nodeHandlers,
   ...sendHandlers,
   ...usageHandlers,

@@ -15,6 +15,33 @@ export type N8nIntegrationConfig = {
   timeoutSeconds?: number;
 };
 
+export type NotionIntegrationConfig = {
+  /** Enable Notion project sync. */
+  enabled?: boolean;
+  /** Notion API key from the integration settings. */
+  apiKey?: string;
+  /** Notion database ID containing projects. */
+  databaseId?: string;
+  /** Timeout for Notion API requests (seconds). */
+  timeoutSeconds?: number;
+  /** Optional property name overrides for project fields. */
+  propertyMap?: {
+    name?: string;
+    status?: string;
+    type?: string;
+    client?: string;
+    deadline?: string;
+    revenue?: string;
+    impact?: string;
+    techStack?: string;
+    description?: string;
+    customColor?: string;
+    icon?: string;
+    size?: string;
+  };
+};
+
 export type IntegrationsConfig = {
   n8n?: N8nIntegrationConfig;
+  notion?: NotionIntegrationConfig;
 };

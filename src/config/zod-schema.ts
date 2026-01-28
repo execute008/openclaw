@@ -259,6 +259,32 @@ export const MoltbotSchema = z
           })
           .strict()
           .optional(),
+        notion: z
+          .object({
+            enabled: z.boolean().optional(),
+            apiKey: z.string().optional(),
+            databaseId: z.string().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+            propertyMap: z
+              .object({
+                name: z.string().optional(),
+                status: z.string().optional(),
+                type: z.string().optional(),
+                client: z.string().optional(),
+                deadline: z.string().optional(),
+                revenue: z.string().optional(),
+                impact: z.string().optional(),
+                techStack: z.string().optional(),
+                description: z.string().optional(),
+                customColor: z.string().optional(),
+                icon: z.string().optional(),
+                size: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
