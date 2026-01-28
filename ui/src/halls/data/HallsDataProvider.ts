@@ -16,6 +16,8 @@ import type {
 import type {
   Project,
   ProjectPosition,
+  ProjectMetadata,
+  ProjectStatus,
   AgentWorkflow,
   EnergyMetrics,
   BusinessMetrics,
@@ -45,6 +47,14 @@ export interface HallsDataSnapshot {
 // Storage key for project positions in gateway config
 const HALLS_CONFIG_KEY = "halls";
 const INCUBATOR_HEIGHT = 10.5;
+const ARCHIVE_HEIGHT = 0.5;
+const ARCHIVE_DEPTH = -32;
+
+type SavedProjectConfig = {
+  position?: ProjectPosition;
+  status?: ProjectStatus;
+  metadata?: ProjectMetadata;
+};
 
 export class HallsDataProvider {
   private client: GatewayBrowserClient | null = null;
@@ -235,7 +245,7 @@ export class HallsDataProvider {
    * Fetch halls-specific config from gateway.
    */
   private async fetchHallsConfig(): Promise<{
-    projects: Record<string, { position: ProjectPosition }>;
+    projects: Record<string, SavedProjectConfig>;
   } | null> {
     if (!this.client) throw new Error("Not connected");
     try {
@@ -244,7 +254,7 @@ export class HallsDataProvider {
         {},
       );
       const hallsConfig = result?.config?.[HALLS_CONFIG_KEY] as
-        | { projects?: Record<string, { position: ProjectPosition }> }
+        | { projects?: Record<string, SavedProjectConfig> }
         | undefined;
       if (!hallsConfig) return null;
       return { projects: hallsConfig.projects ?? {} };
@@ -267,10 +277,14 @@ export class HallsDataProvider {
       );
       const currentConfig = result?.config ?? {};
       const hallsConfig = (currentConfig[HALLS_CONFIG_KEY] as Record<string, unknown>) ?? {};
-      const projects = (hallsConfig.projects as Record<string, unknown>) ?? {};
+      const projects = (hallsConfig.projects as Record<string, SavedProjectConfig>) ?? {};
 
       // Update project position
-      projects[projectId] = { position };
+      const currentEntry = projects[projectId];
+      projects[projectId] = {
+        ...currentEntry,
+        position,
+      };
       hallsConfig.projects = projects;
       currentConfig[HALLS_CONFIG_KEY] = hallsConfig;
 
@@ -374,7 +388,7 @@ export class HallsDataProvider {
   private buildProjects(
     agents: MappedAgent[],
     sessions: MappedSession[],
-    savedPositions: Record<string, { position: ProjectPosition }>,
+    savedPositions: Record<string, SavedProjectConfig>,
   ): Project[] {
     const projects: Project[] = [];
     const agentSummaries = agents.map((agent) => {
@@ -382,12 +396,22 @@ export class HallsDataProvider {
         (s) => s.key.includes(agent.id) || (agent.isDefault && !s.key.includes("@")),
       );
       const hasRecentActivity = agentSessions.some((s) => s.isActive);
+      const savedEntry = savedPositions[agent.id];
+      const savedPosition = savedEntry?.position;
 
       let status: Project["status"] = "paused";
       if (hasRecentActivity) {
         status = "active";
       } else if (agentSessions.length === 0) {
         status = "hunting";
+      }
+
+      if (savedEntry?.status === "completed") {
+        status = "completed";
+      }
+
+      if (savedPosition && this.isArchivePosition(savedPosition)) {
+        status = "completed";
       }
 
       return {
@@ -398,7 +422,9 @@ export class HallsDataProvider {
     });
 
     const huntingCount = agentSummaries.filter((summary) => summary.status === "hunting").length;
+    const archiveCount = agentSummaries.filter((summary) => summary.status === "completed").length;
     let huntingIndex = 0;
+    let archiveIndex = 0;
 
     // Create a project for each agent
     agentSummaries.forEach((summary, index) => {
@@ -407,15 +433,22 @@ export class HallsDataProvider {
       // Calculate energy based on activity
       const energy = Math.min(10, Math.max(1, Math.floor(agentSessions.length / 2) + 1));
 
-      const zone: Project["zone"] = status === "hunting" ? "incubator" : "forge";
+      const zone: Project["zone"] =
+        status === "completed" ? "archive" : status === "hunting" ? "incubator" : "forge";
 
       // Get saved position or generate default
-      const savedPos = savedPositions[agent.id]?.position;
+      const savedEntry = savedPositions[agent.id];
+      const savedPos = savedEntry?.position;
+      const savedMetadata = savedEntry?.metadata ?? {};
       const position = savedPos
-        ? this.applyZoneHeight(savedPos, zone)
+        ? status === "completed" && !this.isArchivePosition(savedPos)
+          ? this.generateArchivePosition(archiveIndex++, archiveCount)
+          : this.applyZoneHeight(savedPos, zone)
         : zone === "incubator"
           ? this.generateIncubatorPosition(huntingIndex++, huntingCount)
-          : this.generateDefaultPosition(index, agents.length);
+          : zone === "archive"
+            ? this.generateArchivePosition(archiveIndex++, archiveCount)
+            : this.generateDefaultPosition(index, agents.length);
 
       projects.push({
         id: agent.id,
@@ -427,8 +460,11 @@ export class HallsDataProvider {
         position,
         linkedAgents: [agent.id],
         metadata: {
-          description: `Agent: ${agent.name}`,
-          techStack: agentSessions.map((s) => s.model).filter(Boolean) as string[],
+          ...savedMetadata,
+          description: savedMetadata.description ?? `Agent: ${agent.name}`,
+          techStack:
+            savedMetadata.techStack ??
+            (agentSessions.map((s) => s.model).filter(Boolean) as string[]),
         },
         createdAt: new Date(),
         updatedAt: agentSessions[0]?.updatedAt ?? new Date(),
@@ -436,6 +472,13 @@ export class HallsDataProvider {
     });
 
     return projects;
+  }
+
+  /**
+   * Check whether a position is in the archive zone.
+   */
+  private isArchivePosition(position: ProjectPosition): boolean {
+    return position.z <= ARCHIVE_DEPTH + 2;
   }
 
   /**
@@ -468,11 +511,35 @@ export class HallsDataProvider {
   }
 
   /**
+   * Generate a default position for a project in the archive.
+   */
+  private generateArchivePosition(index: number, total: number): ProjectPosition {
+    const rowSize = 5;
+    const baseX = -10;
+    const spacingX = 5;
+    const spacingZ = 3;
+    const row = Math.floor(index / rowSize);
+    const col = index % rowSize;
+    const offsetX = baseX + col * spacingX;
+    const centerOffset = total < rowSize ? (rowSize - total) * 0.5 * spacingX : 0;
+
+    return {
+      x: offsetX + centerOffset,
+      y: ARCHIVE_HEIGHT,
+      z: ARCHIVE_DEPTH - row * spacingZ,
+    };
+  }
+
+  /**
    * Apply zone-specific height adjustments to saved positions.
    */
   private applyZoneHeight(position: ProjectPosition, zone: Project["zone"]): ProjectPosition {
     if (zone === "incubator") {
       return { ...position, y: INCUBATOR_HEIGHT };
+    }
+
+    if (zone === "archive") {
+      return { ...position, y: ARCHIVE_HEIGHT };
     }
 
     return position;
