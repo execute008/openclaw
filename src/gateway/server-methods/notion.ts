@@ -1,5 +1,5 @@
 import { fetch as undiciFetch } from "undici";
-import type { MoltbotConfig } from "../../config/config.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import {
   closeDispatcher,
@@ -131,7 +131,7 @@ const DEFAULT_PROPERTY_MAP: NotionPropertyMap = {
   size: "Size",
 };
 
-function resolveNotionConfig(cfg: MoltbotConfig): NotionConfig | null {
+function resolveNotionConfig(cfg: OpenClawConfig): NotionConfig | null {
   const raw = cfg.integrations?.notion;
   if (!raw || typeof raw !== "object") return null;
   return raw as NotionConfig;

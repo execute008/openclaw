@@ -1,6 +1,6 @@
 import { fetch as undiciFetch } from "undici";
 
-import type { MoltbotConfig } from "../../config/config.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import {
   closeDispatcher,
@@ -63,7 +63,7 @@ const DEFAULT_LEADS_MAP: SheetsLeadsMap = {
   source: "Source",
 };
 
-function resolveSheetsConfig(cfg: MoltbotConfig): SheetsConfig | null {
+function resolveSheetsConfig(cfg: OpenClawConfig): SheetsConfig | null {
   const raw = cfg.integrations?.sheets;
   if (!raw || typeof raw !== "object") return null;
   return raw as SheetsConfig;

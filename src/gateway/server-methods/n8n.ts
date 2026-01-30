@@ -1,6 +1,6 @@
 import { fetch as undiciFetch } from "undici";
 
-import type { MoltbotConfig } from "../../config/config.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import {
   closeDispatcher,
@@ -55,7 +55,7 @@ type N8nConfig = {
 const DEFAULT_API_PATH = "/api/v1";
 const DEFAULT_TIMEOUT_SECONDS = 10;
 
-function resolveN8nConfig(cfg: MoltbotConfig): N8nConfig | null {
+function resolveN8nConfig(cfg: OpenClawConfig): N8nConfig | null {
   const raw = cfg.integrations?.n8n;
   if (!raw || typeof raw !== "object") return null;
   return raw as N8nConfig;
