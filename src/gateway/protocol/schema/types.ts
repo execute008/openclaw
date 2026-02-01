@@ -1,5 +1,4 @@
 import type { Static } from "@sinclair/typebox";
-
 import type {
   AgentEventSchema,
   AgentIdentityParamsSchema,
@@ -50,6 +49,13 @@ import type {
   CronUpdateParamsSchema,
 } from "./cron.js";
 import type {
+  DevicePairApproveParamsSchema,
+  DevicePairListParamsSchema,
+  DevicePairRejectParamsSchema,
+  DeviceTokenRevokeParamsSchema,
+  DeviceTokenRotateParamsSchema,
+} from "./devices.js";
+import type {
   ExecApprovalsGetParamsSchema,
   ExecApprovalsNodeGetParamsSchema,
   ExecApprovalsNodeSetParamsSchema,
@@ -58,13 +64,6 @@ import type {
   ExecApprovalRequestParamsSchema,
   ExecApprovalResolveParamsSchema,
 } from "./exec-approvals.js";
-import type {
-  DevicePairApproveParamsSchema,
-  DevicePairListParamsSchema,
-  DevicePairRejectParamsSchema,
-  DeviceTokenRevokeParamsSchema,
-  DeviceTokenRotateParamsSchema,
-} from "./devices.js";
 import type {
   ConnectParamsSchema,
   ErrorShapeSchema,
@@ -85,11 +84,6 @@ import type {
 } from "./logs-chat.js";
 import type { N8nTriggerParamsSchema, N8nWorkflowsParamsSchema } from "./n8n.js";
 import type {
-  NotionDatabasesParamsSchema,
-  NotionProjectUpdateParamsSchema,
-  NotionProjectsParamsSchema,
-} from "./notion.js";
-import type {
   NodeDescribeParamsSchema,
   NodeEventParamsSchema,
   NodeInvokeParamsSchema,
@@ -102,6 +96,11 @@ import type {
   NodePairVerifyParamsSchema,
   NodeRenameParamsSchema,
 } from "./nodes.js";
+import type {
+  NotionDatabasesParamsSchema,
+  NotionProjectUpdateParamsSchema,
+  NotionProjectsParamsSchema,
+} from "./notion.js";
 import type {
   SessionsCompactParamsSchema,
   SessionsDeleteParamsSchema,

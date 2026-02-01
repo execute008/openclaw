@@ -619,13 +619,7 @@ export type StatusSummary = Record<string, unknown>;
 
 export type HealthSnapshot = Record<string, unknown>;
 
-export type LogLevel =
-  | "trace"
-  | "debug"
-  | "info"
-  | "warn"
-  | "error"
-  | "fatal";
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LogEntry = {
   raw: string;
