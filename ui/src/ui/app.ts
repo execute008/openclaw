@@ -27,6 +27,7 @@ import type {
   SkillStatusReport,
   StatusSummary,
   NostrProfile,
+  NotionDatabasesResult,
 } from "./types.ts";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
 import {
@@ -181,6 +182,9 @@ export class OpenClawApp extends LitElement {
   @state() configSearchQuery = "";
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;
+  @state() notionDatabasesLoading = false;
+  @state() notionDatabasesError: string | null = null;
+  @state() notionDatabases: NotionDatabasesResult | null = null;
 
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;

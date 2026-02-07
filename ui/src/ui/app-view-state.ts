@@ -23,6 +23,7 @@ import type {
   LogEntry,
   LogLevel,
   NostrProfile,
+  NotionDatabasesResult,
   PresenceEntry,
   SessionsUsageResult,
   CostUsageSummary,
@@ -107,6 +108,9 @@ export type AppViewState = {
   configSearchQuery: string;
   configActiveSection: string | null;
   configActiveSubsection: string | null;
+  notionDatabasesLoading: boolean;
+  notionDatabasesError: string | null;
+  notionDatabases: NotionDatabasesResult | null;
   channelsLoading: boolean;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsError: string | null;

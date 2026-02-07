@@ -75,3 +75,6 @@ USER.md
 memory/
 .agent/*.json
 !.agent/workflows/
+.playwright-mcp/
+.ralph-tui/
+tasks/

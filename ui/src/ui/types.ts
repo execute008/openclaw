@@ -708,6 +708,111 @@ export type CronRunLogEntry = {
   sessionKey?: string;
 };
 
+export type N8nWorkflowTag = {
+  id?: string | null;
+  name?: string | null;
+};
+
+export type N8nWorkflow = {
+  id: string;
+  name?: string | null;
+  active?: boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  tags?: Array<N8nWorkflowTag | string> | null;
+  lastExecution?: {
+    status?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+  } | null;
+};
+
+export type N8nWorkflowsResult = {
+  connected: boolean;
+  workflows: N8nWorkflow[];
+  error?: string;
+};
+
+export type N8nTriggerResult = {
+  workflowId: string;
+  triggered: boolean;
+  executionId?: string;
+};
+
+export type NotionProjectMetadata = {
+  client?: string;
+  deadline?: string;
+  revenue?: number;
+  impact?: string | number;
+  techStack?: string[];
+  description?: string;
+  customColor?: string;
+  icon?: string;
+  size?: string;
+};
+
+export type NotionProject = {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  type?: string | null;
+  url?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  metadata?: NotionProjectMetadata;
+};
+
+export type NotionDatabaseEntry = {
+  id: string;
+  title?: string | null;
+  url?: string | null;
+  icon?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type NotionProjectsResult = {
+  connected: boolean;
+  projects: NotionProject[];
+  error?: string;
+};
+
+export type NotionDatabasesResult = {
+  connected: boolean;
+  databases: NotionDatabaseEntry[];
+  error?: string;
+};
+
+export type NotionProjectUpdateResult = {
+  id: string;
+  updated: boolean;
+  error?: string;
+};
+
+export type SheetsMetrics = {
+  monthlyRevenue?: number;
+  pipelineValue?: number;
+  responseRate?: number;
+  activeLeads?: number;
+  averageProjectValue?: number;
+};
+
+export type SheetsLead = {
+  id: string;
+  name?: string;
+  company?: string;
+  value?: number;
+  status?: string;
+  source?: string;
+};
+
+export type SheetsMetricsResult = {
+  connected: boolean;
+  metrics?: SheetsMetrics;
+  leads?: SheetsLead[];
+  error?: string;
+};
+
 export type SkillsStatusConfigCheck = {
   path: string;
   value: unknown;

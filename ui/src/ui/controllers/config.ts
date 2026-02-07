@@ -1,5 +1,10 @@
 import type { GatewayBrowserClient } from "../gateway.ts";
-import type { ConfigSchemaResponse, ConfigSnapshot, ConfigUiHints } from "../types.ts";
+import type {
+  ConfigSchemaResponse,
+  ConfigSnapshot,
+  ConfigUiHints,
+  NotionDatabasesResult,
+} from "../types.ts";
 import {
   cloneConfigObject,
   removePathValue,
@@ -31,6 +36,9 @@ export type ConfigState = {
   configSearchQuery: string;
   configActiveSection: string | null;
   configActiveSubsection: string | null;
+  notionDatabasesLoading: boolean;
+  notionDatabasesError: string | null;
+  notionDatabases: NotionDatabasesResult | null;
   lastError: string | null;
 };
 
@@ -65,6 +73,22 @@ export async function loadConfigSchema(state: ConfigState) {
     state.lastError = String(err);
   } finally {
     state.configSchemaLoading = false;
+  }
+}
+
+export async function loadNotionDatabases(state: ConfigState) {
+  if (!state.client || !state.connected) return;
+  if (state.notionDatabasesLoading) return;
+  state.notionDatabasesLoading = true;
+  state.notionDatabasesError = null;
+  try {
+    const res = (await state.client.request("notion.databases", {})) as NotionDatabasesResult;
+    state.notionDatabases = res;
+    state.notionDatabasesError = res.error ?? null;
+  } catch (err) {
+    state.notionDatabasesError = String(err);
+  } finally {
+    state.notionDatabasesLoading = false;
   }
 }
 

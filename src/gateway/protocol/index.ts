@@ -111,6 +111,18 @@ import {
   type LogsTailParams,
   LogsTailParamsSchema,
   type LogsTailResult,
+  type N8nWorkflowsParams,
+  N8nWorkflowsParamsSchema,
+  type N8nTriggerParams,
+  N8nTriggerParamsSchema,
+  type NotionDatabasesParams,
+  NotionDatabasesParamsSchema,
+  type NotionProjectsParams,
+  NotionProjectsParamsSchema,
+  type NotionProjectUpdateParams,
+  NotionProjectUpdateParamsSchema,
+  type SheetsMetricsParams,
+  SheetsMetricsParamsSchema,
   LogsTailResultSchema,
   type ModelsListParams,
   ModelsListParamsSchema,
@@ -338,6 +350,19 @@ export const validateExecApprovalsNodeSetParams = ajv.compile<ExecApprovalsNodeS
   ExecApprovalsNodeSetParamsSchema,
 );
 export const validateLogsTailParams = ajv.compile<LogsTailParams>(LogsTailParamsSchema);
+export const validateN8nWorkflowsParams = ajv.compile<N8nWorkflowsParams>(N8nWorkflowsParamsSchema);
+export const validateN8nTriggerParams = ajv.compile<N8nTriggerParams>(N8nTriggerParamsSchema);
+export const validateNotionDatabasesParams = ajv.compile<NotionDatabasesParams>(
+  NotionDatabasesParamsSchema,
+);
+export const validateNotionProjectsParams = ajv.compile<NotionProjectsParams>(
+  NotionProjectsParamsSchema,
+);
+export const validateNotionProjectUpdateParams = ajv.compile<NotionProjectUpdateParams>(
+  NotionProjectUpdateParamsSchema,
+);
+export const validateSheetsMetricsParams =
+  ajv.compile<SheetsMetricsParams>(SheetsMetricsParamsSchema);
 export const validateChatHistoryParams = ajv.compile(ChatHistoryParamsSchema);
 export const validateChatSendParams = ajv.compile(ChatSendParamsSchema);
 export const validateChatAbortParams = ajv.compile<ChatAbortParams>(ChatAbortParamsSchema);

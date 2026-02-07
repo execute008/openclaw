@@ -13,9 +13,12 @@ import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
 import { healthHandlers } from "./server-methods/health.js";
 import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
+import { n8nHandlers } from "./server-methods/n8n.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
+import { notionHandlers } from "./server-methods/notion.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
+import { sheetsHandlers } from "./server-methods/sheets.js";
 import { skillsHandlers } from "./server-methods/skills.js";
 import { systemHandlers } from "./server-methods/system.js";
 import { talkHandlers } from "./server-methods/talk.js";
@@ -67,6 +70,10 @@ const READ_METHODS = new Set([
   "cron.list",
   "cron.status",
   "cron.runs",
+  "n8n.workflows",
+  "notion.databases",
+  "notion.projects",
+  "sheets.metrics",
   "system-presence",
   "last-heartbeat",
   "node.list",
@@ -88,6 +95,8 @@ const WRITE_METHODS = new Set([
   "chat.send",
   "chat.abort",
   "browser.request",
+  "n8n.trigger",
+  "notion.project.update",
 ]);
 
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
@@ -179,6 +188,9 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...sessionsHandlers,
   ...systemHandlers,
   ...updateHandlers,
+  ...n8nHandlers,
+  ...notionHandlers,
+  ...sheetsHandlers,
   ...nodeHandlers,
   ...sendHandlers,
   ...usageHandlers,

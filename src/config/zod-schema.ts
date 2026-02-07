@@ -305,6 +305,80 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    integrations: z
+      .object({
+        n8n: z
+          .object({
+            enabled: z.boolean().optional(),
+            baseUrl: z.string().optional(),
+            apiKey: z.string().optional(),
+            apiPath: z.string().optional(),
+            workflowIds: z.array(z.string()).optional(),
+            includeInactive: z.boolean().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+          })
+          .strict()
+          .optional(),
+        notion: z
+          .object({
+            enabled: z.boolean().optional(),
+            apiKey: z.string().optional(),
+            databaseId: z.string().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+            propertyMap: z
+              .object({
+                name: z.string().optional(),
+                status: z.string().optional(),
+                type: z.string().optional(),
+                client: z.string().optional(),
+                deadline: z.string().optional(),
+                revenue: z.string().optional(),
+                impact: z.string().optional(),
+                techStack: z.string().optional(),
+                description: z.string().optional(),
+                customColor: z.string().optional(),
+                icon: z.string().optional(),
+                size: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
+        sheets: z
+          .object({
+            enabled: z.boolean().optional(),
+            apiKey: z.string().optional(),
+            spreadsheetId: z.string().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+            metricsRange: z.string().optional(),
+            leadsRange: z.string().optional(),
+            metricsMap: z
+              .object({
+                monthlyRevenue: z.string().optional(),
+                pipelineValue: z.string().optional(),
+                responseRate: z.string().optional(),
+                activeLeads: z.string().optional(),
+                averageProjectValue: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+            leadsMap: z
+              .object({
+                name: z.string().optional(),
+                company: z.string().optional(),
+                value: z.string().optional(),
+                status: z.string().optional(),
+                source: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     web: z
       .object({
         enabled: z.boolean().optional(),

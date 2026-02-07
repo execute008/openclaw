@@ -31,6 +31,9 @@ function createState(): ConfigState {
     configUiHints: {},
     configValid: null,
     connected: false,
+    notionDatabasesLoading: false,
+    notionDatabasesError: null,
+    notionDatabases: null,
     lastError: null,
     updateRunning: false,
   };

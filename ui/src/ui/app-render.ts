@@ -13,6 +13,7 @@ import { loadChatHistory } from "./controllers/chat.ts";
 import {
   applyConfig,
   loadConfig,
+  loadNotionDatabases,
   runUpdate,
   saveConfig,
   updateConfigFormValue,
@@ -1131,45 +1132,49 @@ export function renderApp(state: AppViewState) {
             : nothing
         }
 
-        ${
-          state.tab === "config"
-            ? renderConfig({
-                raw: state.configRaw,
-                originalRaw: state.configRawOriginal,
-                valid: state.configValid,
-                issues: state.configIssues,
-                loading: state.configLoading,
-                saving: state.configSaving,
-                applying: state.configApplying,
-                updating: state.updateRunning,
-                connected: state.connected,
-                schema: state.configSchema,
-                schemaLoading: state.configSchemaLoading,
-                uiHints: state.configUiHints,
-                formMode: state.configFormMode,
-                formValue: state.configForm,
-                originalValue: state.configFormOriginal,
-                searchQuery: state.configSearchQuery,
-                activeSection: state.configActiveSection,
-                activeSubsection: state.configActiveSubsection,
-                onRawChange: (next) => {
-                  state.configRaw = next;
-                },
-                onFormModeChange: (mode) => (state.configFormMode = mode),
-                onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
-                onSearchChange: (query) => (state.configSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.configActiveSection = section;
-                  state.configActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.configActiveSubsection = section),
-                onReload: () => loadConfig(state),
-                onSave: () => saveConfig(state),
-                onApply: () => applyConfig(state),
-                onUpdate: () => runUpdate(state),
-              })
-            : nothing
-        }
+${
+  state.tab === "config"
+    ? renderConfig({
+        raw: state.configRaw,
+        originalRaw: state.configRawOriginal,
+        valid: state.configValid,
+        issues: state.configIssues,
+        loading: state.configLoading,
+        saving: state.configSaving,
+        applying: state.configApplying,
+        updating: state.updateRunning,
+        connected: state.connected,
+        schema: state.configSchema,
+        schemaLoading: state.configSchemaLoading,
+        uiHints: state.configUiHints,
+        formMode: state.configFormMode,
+        formValue: state.configForm,
+        originalValue: state.configFormOriginal,
+        searchQuery: state.configSearchQuery,
+        activeSection: state.configActiveSection,
+        activeSubsection: state.configActiveSubsection,
+        notionDatabases: state.notionDatabases,
+        notionDatabasesLoading: state.notionDatabasesLoading,
+        notionDatabasesError: state.notionDatabasesError,
+        onRawChange: (next) => {
+          state.configRaw = next;
+        },
+        onFormModeChange: (mode) => (state.configFormMode = mode),
+        onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
+        onSearchChange: (query) => (state.configSearchQuery = query),
+        onSectionChange: (section) => {
+          state.configActiveSection = section;
+          state.configActiveSubsection = null;
+        },
+        onSubsectionChange: (section) => (state.configActiveSubsection = section),
+        onReload: () => loadConfig(state),
+        onSave: () => saveConfig(state),
+        onApply: () => applyConfig(state),
+        onUpdate: () => runUpdate(state),
+        onNotionDatabasesRefresh: () => loadNotionDatabases(state),
+      })
+    : nothing
+}
 
         ${
           state.tab === "debug"
@@ -1192,25 +1197,36 @@ export function renderApp(state: AppViewState) {
             : nothing
         }
 
+${
+  state.tab === "logs"
+    ? renderLogs({
+        loading: state.logsLoading,
+        error: state.logsError,
+        file: state.logsFile,
+        entries: state.logsEntries,
+        filterText: state.logsFilterText,
+        levelFilters: state.logsLevelFilters,
+        autoFollow: state.logsAutoFollow,
+        truncated: state.logsTruncated,
+        onFilterTextChange: (next) => (state.logsFilterText = next),
+        onLevelToggle: (level, enabled) => {
+          state.logsLevelFilters = { ...state.logsLevelFilters, [level]: enabled };
+        },
+        onToggleAutoFollow: (next) => (state.logsAutoFollow = next),
+        onRefresh: () => loadLogs(state, { reset: true }),
+        onExport: (lines, label) => state.exportLogs(lines, label),
+        onScroll: (event) => state.handleLogsScroll(event),
+      })
+    : nothing
+}
+
         ${
-          state.tab === "logs"
-            ? renderLogs({
-                loading: state.logsLoading,
-                error: state.logsError,
-                file: state.logsFile,
-                entries: state.logsEntries,
-                filterText: state.logsFilterText,
-                levelFilters: state.logsLevelFilters,
-                autoFollow: state.logsAutoFollow,
-                truncated: state.logsTruncated,
-                onFilterTextChange: (next) => (state.logsFilterText = next),
-                onLevelToggle: (level, enabled) => {
-                  state.logsLevelFilters = { ...state.logsLevelFilters, [level]: enabled };
-                },
-                onToggleAutoFollow: (next) => (state.logsAutoFollow = next),
-                onRefresh: () => loadLogs(state, { reset: true }),
-                onExport: (lines, label) => state.exportLogs(lines, label),
-                onScroll: (event) => state.handleLogsScroll(event),
+          state.tab === "halls"
+            ? renderHalls({
+                connected: state.connected,
+                client: state.client,
+                onBackToUI: () => state.setTab("chat"),
+                onOpenSettings: () => state.setTab("config"),
               })
             : nothing
         }
