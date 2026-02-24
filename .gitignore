@@ -114,3 +114,6 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+.playwright-mcp
+tasks
+.ralph-tui
