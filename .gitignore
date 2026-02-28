@@ -120,6 +120,7 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+apps/android/.kotlin/
 .playwright-mcp
 tasks
 .ralph-tui
